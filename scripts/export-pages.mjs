@@ -1,10 +1,13 @@
-import {mkdir,writeFile} from 'node:fs/promises';
+import {mkdir,writeFile,readFile} from 'node:fs/promises';
+const backfill=process.env.AD_BACKFILL==='1';
+const existing=backfill?JSON.parse(await readFile('docs/ads.json','utf8')):null;
+if(existing){process.env.AD_KEYWORDS=[...new Set(existing.ads.flatMap(a=>a.keywords))].join(',');process.env.AD_COUNTRIES=[...new Set(existing.ads.flatMap(a=>a.countries))].join(',')}
 const keywords=[...new Set(process.env.AD_KEYWORDS.split(',').map(x=>x.trim()).filter(Boolean))];
 const countries=[...new Set(process.env.AD_COUNTRIES.toUpperCase().split(',').map(x=>x.trim()).filter(Boolean))];
 if(!keywords.length||!countries.length||keywords.length*countries.length>8||keywords.some(x=>x.length>100)||countries.some(x=>!(/^(ALL|[A-Z]{2})$/).test(x)))throw Error('Enter 1–8 keyword/country combinations');
 const ads=new Map();
 for(const keyword of keywords)for(const country of countries){
- const response=await fetch('http://127.0.0.1:3000/api/scrape',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keyword,country,status:'ACTIVE',limit:10,fetch_details:true}),signal:AbortSignal.timeout(120000)});
+ const response=await fetch('http://127.0.0.1:3000/api/scrape',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keyword,country,status:'ACTIVE',limit:backfill?60:10,fetch_details:!backfill && country!=='ALL'}),signal:AbortSignal.timeout(240000)});
  if(!response.ok)throw Error('Scan HTTP '+response.status);
  const events=(await response.text()).split(/\r?\n/).filter(x=>x.startsWith('data: ')).map(x=>JSON.parse(x.slice(6)));
  for(const e of events.filter(x=>x.type==='error'||x.type==='warning'))console.log(keyword,country,e.type,e.message);
@@ -19,6 +22,19 @@ for(const keyword of keywords)for(const country of countries){
  }
 }
 if(!ads.size)throw Error('No real ads returned; keeping previous publication');
+if(existing){
+ let dates=0;
+ for(const row of existing.ads){
+  const fresh=ads.get(row.id);if(!fresh)continue;
+  for(const key of ['startedAt','daysRunning','reach','impressionsMin','impressionsMax','spendMin','spendMax','currency']){
+   if(fresh[key]!=null&&fresh[key]!==''){if(key==='startedAt'&&!row[key])dates++;row[key]=fresh[key]}
+  }
+ }
+ if(!dates)throw Error('No start dates matched the existing cards');
+ await writeFile('docs/ads.json',JSON.stringify(existing));
+ console.log('Backfilled dates:',dates,'of',existing.ads.length);
+ process.exit(0);
+}
 await mkdir('docs/media',{recursive:true});
 let remaining=250*1024*1024, kept=0;
 const extensions={'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif','image/avif':'avif','video/mp4':'mp4','video/webm':'webm'};

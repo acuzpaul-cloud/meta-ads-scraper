@@ -4,14 +4,15 @@ const countries=[...new Set(process.env.AD_COUNTRIES.toUpperCase().split(',').ma
 if(!keywords.length||!countries.length||keywords.length*countries.length>8||keywords.some(x=>x.length>100)||countries.some(x=>!(/^(ALL|[A-Z]{2})$/).test(x)))throw Error('Enter 1–8 keyword/country combinations');
 const ads=new Map();
 for(const keyword of keywords)for(const country of countries){
- const response=await fetch('http://127.0.0.1:3000/api/scrape',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keyword,country,status:'ACTIVE',limit:10}),signal:AbortSignal.timeout(120000)});
+ const response=await fetch('http://127.0.0.1:3000/api/scrape',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keyword,country,status:'ACTIVE',limit:10,fetch_details:true}),signal:AbortSignal.timeout(120000)});
  if(!response.ok)throw Error('Scan HTTP '+response.status);
  const events=(await response.text()).split(/\r?\n/).filter(x=>x.startsWith('data: ')).map(x=>JSON.parse(x.slice(6)));
  for(const e of events.filter(x=>x.type==='error'||x.type==='warning'))console.log(keyword,country,e.type,e.message);
  if(!events.some(x=>x.type==='done')||events.some(x=>x.type==='error'))throw Error('Incomplete scan: '+keyword+' / '+country);
  for(const {data:a} of events.filter(x=>x.type==='ad'&&/^\d+$/.test(x.data?.id))){
-  if(!ads.has(a.id))ads.set(a.id,{id:a.id,name:a.advertiser_name,type:a.media_type,headline:a.headline||'',body:(a.body_variants||[]).join(' ').slice(0,1800),keywords:[],countries:[],media:[],urls:new Set()});
+  if(!ads.has(a.id))ads.set(a.id,{id:a.id,name:a.advertiser_name,type:a.media_type,startedAt:a.started_at||null,daysRunning:a.days_running??null,reach:a.total_reach??null,impressionsMin:a.impressions_min??null,impressionsMax:a.impressions_max??null,spendMin:a.spend_min??null,spendMax:a.spend_max??null,currency:a.spend_currency||'',headline:a.headline||'',body:(a.body_variants||[]).join(' ').slice(0,1800),keywords:[],countries:[],media:[],urls:new Set()});
   const row=ads.get(a.id);
+  for(const [key,value] of Object.entries({startedAt:a.started_at,daysRunning:a.days_running,reach:a.total_reach,impressionsMin:a.impressions_min,impressionsMax:a.impressions_max,spendMin:a.spend_min,spendMax:a.spend_max,currency:a.spend_currency}))if((row[key]==null||row[key]==='')&&value!=null)row[key]=value;
   if(!row.keywords.includes(keyword))row.keywords.push(keyword);
   if(!row.countries.includes(country))row.countries.push(country);
   for(const url of [...(a.video_urls||[]),...(a.media_urls||[]),...(a.carousel_cards||[]).flatMap(c=>[c.video_url,c.image_url])])if(url)row.urls.add(url);

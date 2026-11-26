@@ -268,11 +268,15 @@ async function enrichBatch(page: Page, sig: DetailSignature, batch: Ad[]): Promi
 export async function* scrapeAds(
   params: SearchParams,
   jobId?: string,
-  externalSeen?: Set<string>
+  externalSeen?: Set<string>,
+  onPaginationStop?: (reason: string) => void
 ): AsyncGenerator<Ad[], void, unknown> {
   if (!params.keyword && !params.advertiser && !params.page_id) return;
 
-  const limit = params.limit || 100;
+  const unlimited = params.limit === 0;
+  const limit = unlimited ? Infinity : (params.limit || 100);
+  const budget = Math.max(30000, Math.min(12 * 60000, Number((params as SearchParams & { paginationBudgetMs?: number }).paginationBudgetMs) || 6 * 60000));
+  const deadline = Date.now() + budget;
   const seen = externalSeen ?? new Set<string>();
   const collectedAds: Ad[] = [];
   const pendingJsons: unknown[] = [];
@@ -395,6 +399,7 @@ export async function* scrapeAds(
     const maxScrolls = Math.ceil(limit / 25) + 6;
 
     for (let i = 0; i < maxScrolls && collectedAds.length < limit; i++) {
+      if (unlimited && Date.now() >= deadline) { onPaginationStop?.('TIME_BUDGET'); break; }
       await acquire();
       await page.evaluate(() => {
         if (document.body) {
@@ -411,7 +416,10 @@ export async function* scrapeAds(
         noNewCount = 0;
       } else {
         noNewCount++;
-        if (noNewCount >= 4) break;
+        if (noNewCount >= 4) {
+          if (unlimited) onPaginationStop?.('NO_MORE_RESULTS_OBSERVED');
+          break;
+        }
       }
     }
 

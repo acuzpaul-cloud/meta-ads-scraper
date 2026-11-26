@@ -185,7 +185,7 @@ $('scan').onsubmit=async e=>{
    if(data?.requestId===sent.requestId){
     selected.clear();for(const id of ['q','brand','country','kind','saved'])$(id).value='';
     await init(data);
-    msg.textContent=(data.scans?.some(s=>s.partial)?'扫描受限，已加载部分结果 ':'查询完成，已加载 ')+data.ads.length+' 条广告。';
+    msg.textContent=(data.scans?.some(s=>s.partial||s.stop==='NO_MORE_RESULTS_OBSERVED')?'未确认翻完，已加载 ':'查询完成，已加载 ')+data.ads.length+' 条广告。';
     return;
    }
    if(n++%2===0){
@@ -216,7 +216,7 @@ $('spend-scenario').addEventListener('submit',e=>{
  output.textContent='情景花费 '+usd.format(units*lo)+' – '+usd.format(units*hi)+'，不是竞品实际花费。';
 });
 async function init(published){
- try{const data=published||await fetch('./ads.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.json()});if(!Array.isArray(data.ads))throw Error();rows=data.ads;$('notice').textContent=(data.scans?.some(s=>s.partial)?'扫描受限 · 以下为已取得的部分结果':(rows.length?'已加载已发布素材':'暂无已发布广告'))}catch{$('notice').textContent='暂时无法加载广告结果，请刷新重试'}
+ try{const data=published||await fetch('./ads.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.json()});if(!Array.isArray(data.ads))throw Error();rows=data.ads;$('notice').textContent=(data.scans?.some(s=>s.partial||s.stop==='NO_MORE_RESULTS_OBSERVED')?'未确认翻完 · 以下为已采集结果':(rows.length?'已加载已发布素材':'暂无已发布广告'))}catch{$('notice').textContent='暂时无法加载广告结果，请刷新重试'}
  function options(id,values,label){$(id).options.length=1;for(const v of [...new Set(values)])$(id).add(new Option(label(v),v))}
  indexCounts(rows);
  options('brand',rows.flatMap(a=>a.keywords),v=>v);options('country',[...countryCodes,...rows.flatMap(a=>a.countries).filter(c=>c!=='ALL')].sort((a,b)=>countryLabel(a).localeCompare(countryLabel(b),'zh-CN')),countryLabel);render();

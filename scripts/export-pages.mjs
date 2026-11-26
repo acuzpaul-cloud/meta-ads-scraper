@@ -15,6 +15,7 @@ for(const keyword of keywords)for(const country of countries){
  for(const {data:a} of events.filter(x=>x.type==='ad'&&/^\d+$/.test(x.data?.id))){
   if(!ads.has(a.id))ads.set(a.id,{id:a.id,name:a.advertiser_name,type:a.media_type,startedAt:a.started_at||null,daysRunning:a.days_running??null,reach:a.total_reach??null,impressionsMin:a.impressions_min??null,impressionsMax:a.impressions_max??null,spendMin:a.spend_min??null,spendMax:a.spend_max??null,currency:a.spend_currency||'',headline:a.headline||'',body:(a.body_variants||[]).join(' ').slice(0,1800),keywords:[],countries:[],media:[],urls:new Set()});
   const row=ads.get(a.id);
+  if(a.post_engagement)row.postEngagement={...row.postEngagement,...a.post_engagement};
   for(const [key,value] of Object.entries({startedAt:a.started_at,daysRunning:a.days_running,reach:a.total_reach,impressionsMin:a.impressions_min,impressionsMax:a.impressions_max,spendMin:a.spend_min,spendMax:a.spend_max,currency:a.spend_currency}))if((row[key]==null||row[key]==='')&&value!=null)row[key]=value;
   if(!row.keywords.includes(keyword))row.keywords.push(keyword);
   if(!row.countries.includes(country))row.countries.push(country);
@@ -26,7 +27,7 @@ if(existing){
  let dates=0;
  for(const row of existing.ads){
   const fresh=ads.get(row.id);if(!fresh)continue;
-  for(const key of ['startedAt','daysRunning','reach','impressionsMin','impressionsMax','spendMin','spendMax','currency']){
+  for(const key of ['startedAt','daysRunning','reach','impressionsMin','impressionsMax','spendMin','spendMax','currency','postEngagement']){
    if(fresh[key]!=null&&fresh[key]!==''){if(key==='startedAt'&&!row[key])dates++;row[key]=fresh[key]}
   }
  }

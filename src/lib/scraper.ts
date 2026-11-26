@@ -46,7 +46,8 @@ function buildUrl(params: SearchParams): string {
 
   const url = new URL(ADS_LIBRARY_BASE);
   url.searchParams.set('active_status', statusMap[params.status ?? 'ALL'] ?? 'all');
-  url.searchParams.set('ad_type', params.ad_type && params.ad_type !== 'unknown' ? params.ad_type : 'all');
+  url.searchParams.set('ad_type', 'all');
+  url.searchParams.set('media_type', ['image','video','meme'].includes(params.ad_type || '') ? params.ad_type! : 'all');
   url.searchParams.set('country', params.country || 'ALL');
 
   const query = params.keyword || params.advertiser;

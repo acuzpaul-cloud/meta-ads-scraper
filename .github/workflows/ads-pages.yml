@@ -93,6 +93,18 @@ jobs:
         env:
           ADSPENDSPY_API_KEY: ${{ secrets.ADSPENDSPY_API_KEY }}
         run: node scripts/enrich-adspendspy.mjs
+      - name: Clear published search results
+        if: github.event_name == 'push' && contains(github.event.head_commit.message, '[clear-published-ads]')
+        run: |
+          python - <<'PY'
+          import datetime, json, pathlib, shutil
+          root = pathlib.Path('docs')
+          shutil.rmtree(root / 'media', ignore_errors=False)
+          (root / 'ads.json').write_text(json.dumps({
+              'requestId': '', 'updatedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'scans': [], 'ads': []
+          }), encoding='utf-8')
+          PY
       - name: Fingerprint creative files
         run: |
           python - <<'PY'

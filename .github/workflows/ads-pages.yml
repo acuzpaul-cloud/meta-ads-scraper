@@ -88,6 +88,11 @@ jobs:
           curl -fsS --max-time 15 http://127.0.0.1:3000/api/ads >/dev/null
           node scripts/export-pages.mjs
           cp node_modules/jszip/dist/jszip.min.js docs/
+      - name: Add optional spend estimates
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          ADSPENDSPY_API_KEY: ${{ secrets.ADSPENDSPY_API_KEY }}
+        run: node scripts/enrich-adspendspy.mjs
       - name: Fingerprint creative files
         run: |
           python - <<'PY'

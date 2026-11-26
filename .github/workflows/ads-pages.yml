@@ -88,6 +88,25 @@ jobs:
           curl -fsS --max-time 15 http://127.0.0.1:3000/api/ads >/dev/null
           node scripts/export-pages.mjs
           cp node_modules/jszip/dist/jszip.min.js docs/
+      - name: Fingerprint creative files
+        run: |
+          python - <<'PY'
+          import hashlib, json, pathlib, re
+          path = pathlib.Path('docs/ads.json')
+          data = json.loads(path.read_text(encoding='utf-8'))
+          cache = {}
+          for ad in data['ads']:
+              for item in ad.get('media', []):
+                  name = item['file']
+                  if not re.fullmatch(r'media/[0-9]+-[0-9]+\.(jpg|png|webp|gif|avif|mp4|webm)', name):
+                      continue
+                  if name not in cache:
+                      with pathlib.Path('docs', name).open('rb') as stream:
+                          cache[name] = hashlib.file_digest(stream, 'sha256').hexdigest()
+                  item['sha256'] = cache[name]
+          path.write_text(json.dumps(data, ensure_ascii=False), encoding='utf-8')
+          print(f'Fingerprinted {len(cache)} creative files')
+          PY
       - uses: actions/upload-pages-artifact@v3
         with:
           path: docs

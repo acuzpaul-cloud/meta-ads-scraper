@@ -63,7 +63,7 @@ el.querySelector('small').textContent='Library ID '+a.id;
 el.querySelector('.meta').textContent=types[a.type]||a.type;
 const geo=document.createElement('div');geo.className='meta';
 const matched=(a.countries||[]).filter(c=>c!=='ALL');
-geo.textContent=matched.length?'推广地区 '+matched.map(countryLabel).join(' / ')+'（查询命中）':'推广地区 未细分';
+geo.textContent=matched.length?'推广地区 '+matched.map(countryLabel).join(' / '):'推广地区 未细分';
 geo.title='查询命中的国家，不代表广告的完整投放范围。';
 el.querySelector('.meta').append(geo);
 const start=document.createElement('div');start.className='meta';
@@ -155,7 +155,8 @@ async function downloadZip(items,filename,requireAll=false){
  $('notice').textContent='已打包 '+(items.length-failures)+' 个文件'+(failures?'，'+failures+' 个失败':'');
 }
 const scope=$('scope');
-const countries=[];for(let a=65;a<=90;a++)for(let b=65;b<=90;b++){const code=String.fromCharCode(a,b),label=region.of(code);if(label!==code&&code!=='EU'&&code!=='UN')countries.push([code,label])}
+const countryCodes='BR IN GB US CA AR AU AT BE CL CN CO HR DK DO EG FI FR DE GR HK ID IE IL IT JP JO KW LB MY MX NL NZ NG NO PK PA PE PH PL RU SA RS SG ZA KR ES SE CH TW TH TR AE VE PT LU BG CZ SI IS SK LT TT BD LK KE HU MA CY JM EC RO BO GT CR QA SV HN NI PY UY PR BA PS TN BH VN GH MU UA MT BS MV OM MK LV EE IQ DZ AL NP MO ME SN GE BN UG GP BB AZ TZ LY MQ CM BW ET KZ NA MG NC MD FJ BY JE GU YE ZM IM HT KH AW PF AF BM GY AM MW AG RW GG GM FO LC KY BJ AD GD VI BZ VC MN MZ ML AO GF UZ DJ BF MC TG GL GA GI CD KG PG BT KN SZ LS LA LI MP SR SC VG TC DM MR AX SM SL NE CG AI YT CV GN TM BI TJ VU SB ER WS AS FK GQ TO KM PW FM CF SO MH VA TD KI ST TV NR RE LR ZW CI MM AN AQ BQ BV IO CX CC CK CW GS GW HM XK MS NU NF PN BL SH MF PM SX SS SJ TL TK UM WF EH SY'.split(' ');
+const countries=countryCodes.map(code=>[code,countryLabel(code)]);
 for(const [code,label] of countries.sort((a,b)=>a[1].localeCompare(b[1],'zh-CN')))scope.add(new Option(label,code));
 $('scan').onsubmit=async e=>{
  e.preventDefault();
@@ -213,9 +214,9 @@ $('spend-scenario').addEventListener('submit',e=>{
 });
 async function init(published){
  try{const data=published||await fetch('./ads.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.json()});if(!Array.isArray(data.ads))throw Error();rows=data.ads;$('notice').textContent=(data.scans?.some(s=>s.partial)?'扫描受限 · 以下为已取得的部分结果':(rows.length?'已加载已发布素材':'暂无已发布广告'))}catch{$('notice').textContent='暂时无法加载广告结果，请刷新重试'}
- function options(id,values,label){$(id).options.length=1;for(const v of [...new Set(values)].sort())$(id).add(new Option(label(v),v))}
+ function options(id,values,label){$(id).options.length=1;for(const v of [...new Set(values)])$(id).add(new Option(label(v),v))}
  indexCounts(rows);
- options('brand',rows.flatMap(a=>a.keywords),v=>v);options('country',rows.flatMap(a=>a.countries),countryLabel);render();
+ options('brand',rows.flatMap(a=>a.keywords),v=>v);options('country',[...countryCodes,...rows.flatMap(a=>a.countries).filter(c=>c!=='ALL')].sort((a,b)=>countryLabel(a).localeCompare(countryLabel(b),'zh-CN')),countryLabel);render();
 }
 init();
 </script></html>

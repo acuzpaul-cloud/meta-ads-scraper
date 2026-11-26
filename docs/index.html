@@ -40,6 +40,12 @@ const duration=document.createElement('div');duration.className='meta';
 const days=a.daysRunning;
 duration.textContent='投放天数 '+(Number.isFinite(days)?days.toLocaleString('zh-CN')+' 天':'未获取');
 start.after(duration);
+const counts=[['原帖点赞',a.postEngagement?.likes],['评论',a.postEngagement?.comments],['分享',a.postEngagement?.shares]].filter(([,n])=>Number.isSafeInteger(n)&&n>=0);
+if(counts.length){
+ const engagement=document.createElement('div');engagement.className='meta';
+ engagement.textContent=counts.map(([label,n])=>label+' '+n.toLocaleString('zh-CN')).join(' · ');
+ duration.after(engagement);
+}
 el.querySelector('a').href='https://www.facebook.com/ads/library/?id='+a.id;
 const check=document.createElement('input');check.type='checkbox';check.disabled=!items.length;check.checked=selected.has(a.id);check.setAttribute('aria-label','选择 '+a.name);check.onchange=()=>{if(check.checked)selected.add(a.id);else selected.delete(a.id);$('count').textContent='显示 '+found.length+' / '+rows.length+' 条 · 已选 '+selected.size+' 张';$('batch').disabled=!selected.size};buttons.append(check);
 function button(label,fn){const b=document.createElement('button');b.textContent=label;b.onclick=fn;buttons.append(b);return b}

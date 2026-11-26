@@ -32,6 +32,7 @@ export interface RegionEntry {
 export interface Ad {
   id: string;
   advertiser_name: string;
+  post_engagement?: { likes?: number; comments?: number; shares?: number };
   advertiser_page_id?: string;
   body_variants: string[];
   headline?: string;

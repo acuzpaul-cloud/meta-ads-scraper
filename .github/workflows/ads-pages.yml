@@ -8,7 +8,11 @@ on:
         type: string
       countries:
         description: '逗号分隔的扫描国家代码，例如 US,GB；ALL 为全球'
-        default: 'US,GB'
+        default: 'ALL'
+      request_id:
+        description: '前端请求编号，手动运行时留空'
+        required: false
+        type: string
 permissions:
   contents: read
   pages: write
@@ -33,6 +37,7 @@ jobs:
         env:
           AD_KEYWORDS: ${{ inputs.keywords }}
           AD_COUNTRIES: ${{ inputs.countries }}
+          AD_REQUEST_ID: ${{ inputs.request_id }}
         run: |
           npm run dev > /tmp/meta-app.log 2>&1 &
           trap 'tail -n 35 /tmp/meta-app.log' EXIT

@@ -25,7 +25,7 @@ for(const keyword of keywords)for(const country of countries){
  const done=events.find(x=>x.type==='done');
  const warnings=events.filter(x=>x.type==='warning').map(x=>x.code);
  if(backfill&&(!done||events.some(x=>x.type==='error')))throw Error('Incomplete backfill: '+keyword+' / '+country);
- scans.push({keyword,country,count:events.filter(x=>x.type==='ad').length,partial:!done||events.some(x=>x.type==='error')||done.paginationStop==='TIME_BUDGET'||warnings.includes('META_RATE_LIMITED'),stop:done?.paginationStop||null});
+ scans.push({keyword,country,count:events.filter(x=>x.type==='ad').length,partial:!done||events.some(x=>x.type==='error')||['TIME_BUDGET','PAGINATION_BLOCKED','PAGINATION_UNCONFIRMED','NO_MORE_RESULTS_OBSERVED'].includes(done.paginationStop)||warnings.includes('META_RATE_LIMITED'),stop:done?.paginationStop||null});
  for(const {data:a} of events.filter(x=>x.type==='ad'&&/^\d+$/.test(x.data?.id))){
   if(!ads.has(a.id))ads.set(a.id,{id:a.id,name:a.advertiser_name,type:a.media_type,startedAt:a.started_at||null,daysRunning:a.days_running??null,reach:a.total_reach??null,impressionsMin:a.impressions_min??null,impressionsMax:a.impressions_max??null,spendMin:a.spend_min??null,spendMax:a.spend_max??null,currency:a.spend_currency||'',headline:a.headline||'',body:(a.body_variants||[]).join(' ').slice(0,1800),keywords:[],countries:[],media:[],urls:new Set(),destinations:new Map()});
   const row=ads.get(a.id);

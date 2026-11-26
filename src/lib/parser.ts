@@ -235,6 +235,10 @@ function extractBodies(node: Record<string, unknown>): string[] {
 export function parseAdNode(node: Record<string, unknown>, jobId?: string): Ad {
   const snapshot = node.snapshot as Record<string, unknown> | undefined;
 
+  const count = (v: unknown) => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 ? v : undefined;
+  const post = (node.original_post ?? snapshot?.original_post) as Record<string, unknown> | undefined;
+  const postEngagement = { likes: count(post?.like_count), comments: count(post?.comment_count), shares: count(post?.share_count) };
+
   // Date fields: GraphQL uses ad_delivery_start_time, SSR HTML uses start_date
   const startTime = toIso(node.ad_delivery_start_time ?? node.start_date);
   const stopTime = toIso(node.ad_delivery_stop_time ?? node.end_date);
@@ -284,6 +288,7 @@ export function parseAdNode(node: Record<string, unknown>, jobId?: string): Ad {
   return {
     id: String(node.ad_archive_id || node.id || ''),
     advertiser_name: advertiserName,
+    post_engagement: Object.values(postEngagement).some(v => v !== undefined) ? postEngagement : undefined,
     advertiser_page_id: node.page_id ? String(node.page_id) : undefined,
     body_variants: extractBodies(node),
     headline,

@@ -68,6 +68,15 @@ const duration=document.createElement('div');duration.className='meta';
 const days=a.daysRunning;
 duration.textContent='投放天数 '+(Number.isFinite(days)?days.toLocaleString('zh-CN')+' 天':'未获取');
 start.after(duration);
+const metrics=document.createElement('div');metrics.className='meta delivery-numbers';
+const spend=a.spendEstimate;
+const priced=spend?.scope==='EU_UK'&&spend.currency==='EUR'&&Number.isFinite(spend.amount)&&spend.amount>0;
+const reach=Number.isFinite(a.reach)&&a.reach>0?a.reach:null;
+const spendLine=document.createElement('div');spendLine.textContent=priced?'预估花费（欧盟及英国） '+new Intl.NumberFormat('zh-CN',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(spend.amount):'预估花费 · 无数据';
+if(priced)spendLine.title='来源 AdSpendSpy，累计模型估算，不是广告主实际支出';
+const reachLine=document.createElement('div');reachLine.textContent=reach===null?'覆盖人数 · 无数据':'Meta 公开覆盖 '+reach.toLocaleString('zh-CN')+' 人';
+if(reach!==null)reachLine.title='Meta 披露的数据，不等于美国或全球覆盖人数';
+metrics.append(spendLine,reachLine);duration.after(metrics);
 const counts=[['原帖点赞',a.postEngagement?.likes],['评论',a.postEngagement?.comments],['分享',a.postEngagement?.shares]].filter(([,n])=>Number.isSafeInteger(n)&&n>=0);
 if(counts.length){
  const engagement=document.createElement('div');engagement.className='meta';

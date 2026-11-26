@@ -49,7 +49,7 @@ jobs:
                   except Exception:
                       if n == 2: raise
                       time.sleep(n + 1)
-          catalog = read('ads.json', 3 * 1024 * 1024)
+          catalog = read('ads.json', 32 * 1024 * 1024)
           ads = json.loads(catalog)['ads']
           paths = {m['file'] for ad in ads for m in ad['media']}
           if len(paths) > 1000 or any(not re.fullmatch(r'media/[0-9]+-[0-9]+\.(jpg|png|webp|gif|avif|mp4|webm)', p) for p in paths):

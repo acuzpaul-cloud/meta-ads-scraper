@@ -6,6 +6,8 @@ const keywords=[...new Set(process.env.AD_KEYWORDS.split(',').map(x=>x.trim()).f
 const countries=[...new Set(process.env.AD_COUNTRIES.toUpperCase().split(',').map(x=>x.trim()).filter(Boolean))];
 if(!keywords.length||!countries.length||keywords.length*countries.length>8||keywords.some(x=>x.length>100)||countries.some(x=>!(/^(ALL|[A-Z]{2})$/).test(x)))throw Error('Enter 1–8 keyword/country combinations');
 const ads=new Map();
+const scans=[];
+const perSearch=Math.floor(10*60000/(keywords.length*countries.length));
 function landingUrl(raw){
  if(typeof raw!=='string'||raw.length>4000)return null;
  try{
@@ -16,11 +18,14 @@ function landingUrl(raw){
  }catch{return null}
 }
 for(const keyword of keywords)for(const country of countries){
- const response=await fetch('http://127.0.0.1:3000/api/scrape',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keyword,country,status:'ACTIVE',limit:backfill?60:10,fetch_details:!backfill && country!=='ALL'}),signal:AbortSignal.timeout(240000)});
+ const response=await fetch('http://127.0.0.1:3000/api/scrape',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keyword,country,status:'ACTIVE',limit:backfill?60:0,paginationBudgetMs:perSearch,fetch_details:!backfill && /^(GB|FR|DE|IT|ES|PL|NL|BE|IE|AT|SE|DK|FI|PT|GR|CZ|RO|HU|SK|SI|HR|BG|LT|LV|EE|LU|MT|CY)$/.test(country)}),signal:AbortSignal.timeout(backfill?240000:perSearch+90000)});
  if(!response.ok)throw Error('Scan HTTP '+response.status);
  const events=(await response.text()).split(/\r?\n/).filter(x=>x.startsWith('data: ')).map(x=>JSON.parse(x.slice(6)));
  for(const e of events.filter(x=>x.type==='error'||x.type==='warning'))console.log(keyword,country,e.type,e.message);
- if(!events.some(x=>x.type==='done')||events.some(x=>x.type==='error'))throw Error('Incomplete scan: '+keyword+' / '+country);
+ const done=events.find(x=>x.type==='done');
+ const warnings=events.filter(x=>x.type==='warning').map(x=>x.code);
+ if(backfill&&(!done||events.some(x=>x.type==='error')))throw Error('Incomplete backfill: '+keyword+' / '+country);
+ scans.push({keyword,country,count:events.filter(x=>x.type==='ad').length,partial:!done||events.some(x=>x.type==='error')||done.paginationStop==='TIME_BUDGET'||warnings.includes('META_RATE_LIMITED'),stop:done?.paginationStop||null});
  for(const {data:a} of events.filter(x=>x.type==='ad'&&/^\d+$/.test(x.data?.id))){
   if(!ads.has(a.id))ads.set(a.id,{id:a.id,name:a.advertiser_name,type:a.media_type,startedAt:a.started_at||null,daysRunning:a.days_running??null,reach:a.total_reach??null,impressionsMin:a.impressions_min??null,impressionsMax:a.impressions_max??null,spendMin:a.spend_min??null,spendMax:a.spend_max??null,currency:a.spend_currency||'',headline:a.headline||'',body:(a.body_variants||[]).join(' ').slice(0,1800),keywords:[],countries:[],media:[],urls:new Set(),destinations:new Map()});
   const row=ads.get(a.id);
@@ -37,7 +42,7 @@ for(const keyword of keywords)for(const country of countries){
   for(const url of [...(a.video_urls||[]),...(a.media_urls||[]),...(a.carousel_cards||[]).flatMap(c=>[c.video_url,c.image_url])])if(url)row.urls.add(url);
  }
 }
-if(!ads.size)throw Error('No real ads returned; keeping previous publication');
+if(!ads.size&&(backfill||scans.some(x=>x.partial)))throw Error('No reliable results; keeping previous publication');
 if(existing){
  let dates=0,landing=0;
  for(const row of existing.ads){
@@ -76,6 +81,6 @@ for(const row of ads.values()){
  delete row.urls;
  delete row.destinations;
 }
-if(!kept)throw Error('No original media could be saved; keeping previous publication');
-await writeFile('docs/ads.json',JSON.stringify({requestId:process.env.AD_REQUEST_ID||'',updatedAt:new Date().toISOString(),ads:[...ads.values()]}));
+if(ads.size&&!kept)console.log('No downloadable media; publishing ad records and original links');
+await writeFile('docs/ads.json',JSON.stringify({requestId:process.env.AD_REQUEST_ID||'',updatedAt:new Date().toISOString(),scans,ads:[...ads.values()]}));
 console.log('Published',ads.size,'records and',kept,'original media files');

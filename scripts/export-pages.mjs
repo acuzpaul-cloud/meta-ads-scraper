@@ -22,9 +22,13 @@ for(const keyword of keywords)for(const country of countries){
  for(const e of events.filter(x=>x.type==='error'||x.type==='warning'))console.log(keyword,country,e.type,e.message);
  if(!events.some(x=>x.type==='done')||events.some(x=>x.type==='error'))throw Error('Incomplete scan: '+keyword+' / '+country);
  for(const {data:a} of events.filter(x=>x.type==='ad'&&/^\d+$/.test(x.data?.id))){
-  if(!ads.has(a.id))ads.set(a.id,{id:a.id,name:a.advertiser_name,type:a.media_type,startedAt:a.started_at||null,daysRunning:a.days_running??null,reach:a.total_reach??null,impressionsMin:a.impressions_min??null,impressionsMax:a.impressions_max??null,spendMin:a.spend_min??null,spendMax:a.spend_max??null,currency:a.spend_currency||'',headline:a.headline||'',body:(a.body_variants||[]).join(' ').slice(0,1800),keywords:[],countries:[],media:[],urls:new Set()});
+  if(!ads.has(a.id))ads.set(a.id,{id:a.id,name:a.advertiser_name,type:a.media_type,startedAt:a.started_at||null,daysRunning:a.days_running??null,reach:a.total_reach??null,impressionsMin:a.impressions_min??null,impressionsMax:a.impressions_max??null,spendMin:a.spend_min??null,spendMax:a.spend_max??null,currency:a.spend_currency||'',headline:a.headline||'',body:(a.body_variants||[]).join(' ').slice(0,1800),keywords:[],countries:[],media:[],urls:new Set(),destinations:new Map()});
   const row=ads.get(a.id);
   const links=[a.link_url,...(a.carousel_cards||[]).map(c=>c.link_url)].map(landingUrl).filter(Boolean);
+  for(const c of a.carousel_cards||[]){
+   const page=landingUrl(c.link_url);
+   if(page&&new URL(page).pathname!=='/')for(const asset of [c.image_url,c.video_url])if(asset&&!row.destinations.has(asset))row.destinations.set(asset,page);
+  }
   if(links.length)row.landingPages=[...new Set([...(row.landingPages||[]),...links])].slice(0,20);
   if(a.post_engagement)row.postEngagement={...row.postEngagement,...a.post_engagement};
   for(const [key,value] of Object.entries({startedAt:a.started_at,daysRunning:a.days_running,reach:a.total_reach,impressionsMin:a.impressions_min,impressionsMax:a.impressions_max,spendMin:a.spend_min,spendMax:a.spend_max,currency:a.spend_currency}))if((row[key]==null||row[key]==='')&&value!=null)row[key]=value;
@@ -66,10 +70,11 @@ for(const row of ads.values()){
    if(!size||size>cap)continue;
    const file='media/'+row.id+'-'+(row.media.length+1)+'.'+extensions[mime];
    await writeFile('docs/'+file,Buffer.concat(chunks,size));
-   row.media.push({file,kind:mime.startsWith('video/')?'video':'image',size});remaining-=size;kept++;
+   row.media.push({file,kind:mime.startsWith('video/')?'video':'image',size,landingPage:row.destinations.get(raw)});remaining-=size;kept++;
   }catch(e){console.log('Media unavailable for',row.id,e.name)}
  }
  delete row.urls;
+ delete row.destinations;
 }
 if(!kept)throw Error('No original media could be saved; keeping previous publication');
 await writeFile('docs/ads.json',JSON.stringify({requestId:process.env.AD_REQUEST_ID||'',updatedAt:new Date().toISOString(),ads:[...ads.values()]}));

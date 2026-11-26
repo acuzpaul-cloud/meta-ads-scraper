@@ -1,6 +1,9 @@
 name: Scan and publish ad preview
-run-name: ${{ inputs.request_id && format('Dashboard scan {0}', inputs.request_id) || 'Manual ad scan' }}
+run-name: ${{ inputs.request_id && format('Dashboard scan {0}', inputs.request_id) || (github.event_name == 'push' && 'Publish dashboard update' || 'Manual ad scan') }}
 on:
+  push:
+    branches: [master]
+    paths: [docs/index.html, .github/workflows/ads-pages.yml]
   workflow_dispatch:
     inputs:
       keywords:
@@ -30,11 +33,15 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
+        if: github.event_name == 'workflow_dispatch'
         with:
           node-version: '24'
       - run: npm ci
+        if: github.event_name == 'workflow_dispatch'
       - run: npx playwright install --with-deps chromium
+        if: github.event_name == 'workflow_dispatch'
       - name: Scan ads and collect available media
+        if: github.event_name == 'workflow_dispatch'
         env:
           AD_KEYWORDS: ${{ inputs.keywords }}
           AD_COUNTRIES: ${{ inputs.countries }}
@@ -49,6 +56,36 @@ jobs:
           curl -fsS --max-time 15 http://127.0.0.1:3000/api/ads >/dev/null
           node scripts/export-pages.mjs
           cp node_modules/jszip/dist/jszip.min.js docs/
+      - name: Preserve current published ads and media
+        if: github.event_name == 'push'
+        run: |
+          python - <<'PY'
+          import concurrent.futures, json, pathlib, re, time, urllib.request
+          base = 'https://acuzpaul-cloud.github.io/meta-ads-scraper/'
+          def read(path, limit):
+              for n in range(3):
+                  try:
+                      with urllib.request.urlopen(base + path, timeout=30) as r:
+                          data = r.read(limit + 1)
+                      if len(data) > limit: raise ValueError('Published file too large')
+                      return data
+                  except Exception:
+                      if n == 2: raise
+                      time.sleep(n + 1)
+          catalog = read('ads.json', 3 * 1024 * 1024)
+          ads = json.loads(catalog)['ads']
+          paths = {m['file'] for ad in ads for m in ad['media']}
+          if len(paths) > 1000 or any(not re.fullmatch(r'media/[0-9]+-[0-9]+\.(jpg|png|webp|gif|avif|mp4|webm)', p) for p in paths):
+              raise ValueError('Unexpected media paths in the current publication')
+          pathlib.Path('docs/media').mkdir(parents=True, exist_ok=True)
+          def copy(path):
+              pathlib.Path('docs', path).write_bytes(read(path, 24 * 1024 * 1024))
+          with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+              list(pool.map(copy, sorted(paths)))
+          pathlib.Path('docs/ads.json').write_bytes(catalog)
+          pathlib.Path('docs/jszip.min.js').write_bytes(read('jszip.min.js', 1024 * 1024))
+          print(f'Preserved {len(ads)} ads and {len(paths)} media files')
+          PY
       - uses: actions/upload-pages-artifact@v3
         with:
           path: docs

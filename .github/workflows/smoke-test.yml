@@ -1,0 +1,85 @@
+name: Meta Ads Smoke Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Test Povison and Homary
+        shell: bash
+        run: |
+          npm run dev > app.log 2>&1 &
+          app_pid=$!
+          trap 'kill "$app_pid" 2>/dev/null || true; tail -n 40 app.log' EXIT
+
+          for i in $(seq 1 45); do
+            if curl -fs --max-time 20 http://127.0.0.1:3000/api/ads >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          curl -fsS --max-time 20 http://127.0.0.1:3000/api/ads >/dev/null
+
+          node --input-type=module <<'JS'
+          let passed = 0;
+
+          for (const keyword of ['povison', 'homary']) {
+            console.log(`\n--- ${keyword} ---`);
+            try {
+              const response = await fetch('http://127.0.0.1:3000/api/scrape', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  keyword,
+                  country: 'ALL',
+                  status: 'ACTIVE',
+                  limit: 10
+                }),
+                signal: AbortSignal.timeout(120_000)
+              });
+
+              if (!response.ok) throw new Error(`Local API HTTP ${response.status}`);
+
+              const events = (await response.text()).split(/\r?\n/)
+                .filter(line => line.startsWith('data: '))
+                .map(line => JSON.parse(line.slice(6)));
+
+              for (const event of events.filter(e => ['error', 'warning'].includes(e.type))) {
+                console.log(`${event.type}: ${event.message}`);
+              }
+
+              const ads = events.filter(e => e.type === 'ad' && e.data?.id);
+              for (const { data } of ads) {
+                console.log(`${data.id} | ${data.advertiser_name} | ${data.media_type}`);
+              }
+
+              const done = events.some(e => e.type === 'done');
+              console.log(`Real ad records: ${ads.length}; scan finished: ${done}`);
+              if (done && ads.length > 0) passed++;
+            } catch (error) {
+              console.log(`Test failed: ${error.message}`);
+            }
+          }
+
+          console.log(`\nKeywords passed: ${passed}/2`);
+          if (passed !== 2) process.exitCode = 1;
+          JS

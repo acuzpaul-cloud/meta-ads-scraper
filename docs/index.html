@@ -39,7 +39,7 @@ function updateBatchControls(){
  $('batch').disabled=batchBusy||!selected.size;
  for(const box of $('grid').querySelectorAll('.card-picker input'))box.disabled=batchBusy;
 }
-const batchSize=24;
+const batchSize=30;
 let renderedCount=0,partialCatalog=false;
 function render(){
 const q=$('q').value.trim().toLowerCase();
@@ -147,10 +147,20 @@ $('loadMore').hidden=renderedCount>=found.length;
 $('loadProgress').textContent=!found.length?'':renderedCount<found.length?'已展示 '+renderedCount+' / '+found.length+' 条':partialCatalog?'已展示 '+found.length+' 条已采集广告，来源分页尚未确认完成。':'已展示全部 '+found.length+' 条已采集广告。';
 }
 $('loadMore').onclick=appendMore;
-if('IntersectionObserver' in window){
- const observer=new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)&&renderedCount<found.length)appendMore()},{rootMargin:'240px'});
- observer.observe($('resultsEnd'));
+// Start the next batch on the first downward movement, not at the sentinel.
+let lastScrollY=window.scrollY, nextBatchAt=0;
+function onDownwardScroll(){
+ if(renderedCount>=found.length||!$('queryOverlay').hidden||performance.now()<nextBatchAt)return;
+ nextBatchAt=performance.now()+350;
+ appendMore();
 }
+window.addEventListener('wheel',event=>{if(event.deltaY>0&&!event.ctrlKey)onDownwardScroll()},{passive:true});
+window.addEventListener('scroll',()=>{
+ const y=window.scrollY, movedDown=y>lastScrollY;
+ lastScrollY=y;
+ if(movedDown)onDownwardScroll();
+},{passive:true});
+
 for(const id of ['q','brand','country','kind','saved'])$(id).addEventListener('input',render);
 $('batchMode').onclick=()=>{batchMode=!batchMode;if(!batchMode)selected.clear();render()};
 $('all').onclick=()=>{found.filter(a=>a.media.length).forEach(a=>selected.add(a.id));render()};

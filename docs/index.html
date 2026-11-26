@@ -36,9 +36,12 @@ el.querySelector('a').href='https://www.facebook.com/ads/library/?id='+a.id;
 const check=document.createElement('input');check.type='checkbox';check.disabled=!items.length;check.checked=selected.has(a.id);check.setAttribute('aria-label','选择 '+a.name);check.onchange=()=>{if(check.checked)selected.add(a.id);else selected.delete(a.id);$('count').textContent='显示 '+found.length+' / '+rows.length+' 条 · 已选 '+selected.size+' 张';$('batch').disabled=!selected.size};buttons.append(check);
 function button(label,fn){const b=document.createElement('button');b.textContent=label;b.onclick=fn;buttons.append(b);return b}
 const fav=button(favorites.has(a.id)?'已收藏':'收藏',()=>{if(favorites.has(a.id))favorites.delete(a.id);else favorites.add(a.id);try{localStorage.setItem('meta-preview-favorites',JSON.stringify([...favorites]))}catch{}render()});
-if(items.length){const dl=document.createElement('a');dl.className='download';dl.textContent='下载当前素材';buttons.append(dl);
- function sync(){dl.href=items[idx].file;dl.download=items[idx].file.split('/').pop()}sync();
- if(items.length>1){const next=button('下一张 · 1/'+items.length,()=>{idx=(idx+1)%items.length;show();sync();next.textContent='下一张 · '+(idx+1)+'/'+items.length})}
+if(items.length){
+ if(items.length===1){const dl=document.createElement('a');dl.className='download';dl.textContent='下载素材';dl.href=items[0].file;dl.download=items[0].file.split('/').pop();buttons.append(dl)}
+ else {
+ const dl=button('下载全部 '+items.length+' 个素材',async()=>{dl.disabled=true;try{await downloadZip(items,'ad-'+a.id+'.zip',true)}catch(e){$('notice').textContent=e.message;dl.textContent='下载失败，点击重试';return}finally{dl.disabled=false}dl.textContent='下载全部 '+items.length+' 个素材'});
+ const next=button('下一张 · 1/'+items.length,()=>{idx=(idx+1)%items.length;show();next.textContent='下一张 · '+(idx+1)+'/'+items.length});
+ }
 }else button('暂无可下载素材',()=>{}).disabled=true;
 return el}));
 }
@@ -48,15 +51,17 @@ $('clear').onclick=()=>{selected.clear();render()};
 $('batch').onclick=async()=>{
  const items=rows.filter(a=>selected.has(a.id)).flatMap(a=>a.media);
  $('batch').disabled=true;
- try{
+ try{await downloadZip(items,'meta-ad-creatives.zip')}catch(e){$('notice').textContent=e.message}finally{$('batch').disabled=!selected.size}
+};
+async function downloadZip(items,filename,requireAll=false){
  if(!window.JSZip)throw Error('ZIP 模块尚未发布');
  const zip=new JSZip();let failures=0;
  for(const [i,m] of items.entries()){ $('notice').textContent='正在打包 '+(i+1)+'/'+items.length;try{const r=await fetch(m.file);if(!r.ok)throw Error();zip.file(m.file.split('/').pop(),await r.blob())}catch{failures++}}
  if(failures===items.length)throw Error('没有可下载文件');
- const url=URL.createObjectURL(await zip.generateAsync({type:'blob'}));const a=document.createElement('a');a.href=url;a.download='meta-ad-creatives.zip';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
+ if(requireAll && failures)throw Error(failures+' 个素材加载失败，未下载不完整的 ZIP。请重试。');
+ const url=URL.createObjectURL(await zip.generateAsync({type:'blob'}));const a=document.createElement('a');a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
  $('notice').textContent='已打包 '+(items.length-failures)+' 个文件'+(failures?'，'+failures+' 个失败':'');
- }catch(e){$('notice').textContent=e.message}finally{$('batch').disabled=!selected.size}
-};
+}
 const scope=$('scope');
 const countries=[];for(let a=65;a<=90;a++)for(let b=65;b<=90;b++){const code=String.fromCharCode(a,b),label=region.of(code);if(label!==code&&code!=='EU'&&code!=='UN')countries.push([code,label])}
 for(const [code,label] of countries.sort((a,b)=>a[1].localeCompare(b[1],'zh-CN')))scope.add(new Option(label,code));

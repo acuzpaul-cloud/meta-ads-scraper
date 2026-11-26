@@ -9,7 +9,7 @@ const types={image:'图片',video:'视频',carousel:'轮播',multi_video:'多视
 const $=id=>document.getElementById(id), selected=new Set();let favorites=new Set(),found=[];
 try{favorites=new Set(JSON.parse(localStorage.getItem('meta-preview-favorites')||'[]'))}catch{}
 const region=new Intl.DisplayNames(['zh-CN'],{type:'region',fallback:'code'});
-const countryLabel=c=>c==='ALL'?'全球扫描（国家未细分）':region.of(c);
+const countryLabel=c=>c==='ALL'?'不限国家':region.of(c);
 function render(){
 const q=$('q').value.trim().toLowerCase();
 found=rows.filter(a=>(!$('brand').value||a.keywords.includes($('brand').value))&&(!$('country').value||a.countries.includes($('country').value))&&(!$('kind').value||a.type===$('kind').value)&&(!$('saved').value||favorites.has(a.id))&&[a.id,a.name,a.headline,a.body,...a.keywords].join(' ').toLowerCase().includes(q));
@@ -31,7 +31,15 @@ function show(){
 show();
 el.querySelector('h2').textContent=a.name;
 el.querySelector('small').textContent='Library ID '+a.id;
-el.querySelector('.meta').textContent=(types[a.type]||a.type)+' · '+a.countries.map(countryLabel).join(' / ');
+el.querySelector('.meta').textContent=(types[a.type]||a.type)+(a.countries.some(c=>c!=='ALL')?' · 查询地区 '+a.countries.filter(c=>c!=='ALL').map(countryLabel).join(' / '):'');
+const start=document.createElement('div');start.className='meta';
+const stamp=a.startedAt&&new Date(a.startedAt);
+start.textContent='开始投放 '+(stamp&&!Number.isNaN(stamp.getTime())?stamp.toISOString().slice(0,10):'未获取');
+el.querySelector('.meta').after(start);
+const stats=document.createElement('details');const title=document.createElement('summary');title.textContent='公开投放数据';stats.append(title);
+const fmt=n=>n.toLocaleString('zh-CN');const range=(lo,hi)=>[lo,hi].filter((v,i,all)=>v!=null&&(i===0||v!==all[0])).map(fmt).join('–');
+const data=[a.daysRunning==null?'':'投放天数 '+fmt(a.daysRunning),a.reach==null?'':'覆盖人数 '+fmt(a.reach),range(a.impressionsMin,a.impressionsMax)?'展示量 '+range(a.impressionsMin,a.impressionsMax):'',range(a.spendMin,a.spendMax)?'花费 '+range(a.spendMin,a.spendMax)+(a.currency?' '+a.currency:''):''].filter(Boolean);
+const statsBody=document.createElement('p');statsBody.textContent=data.length?data.join(' · '):'本条广告未取得公开投放指标。';stats.append(statsBody);start.after(stats);
 el.querySelector('a').href='https://www.facebook.com/ads/library/?id='+a.id;
 const check=document.createElement('input');check.type='checkbox';check.disabled=!items.length;check.checked=selected.has(a.id);check.setAttribute('aria-label','选择 '+a.name);check.onchange=()=>{if(check.checked)selected.add(a.id);else selected.delete(a.id);$('count').textContent='显示 '+found.length+' / '+rows.length+' 条 · 已选 '+selected.size+' 张';$('batch').disabled=!selected.size};buttons.append(check);
 function button(label,fn){const b=document.createElement('button');b.textContent=label;b.onclick=fn;buttons.append(b);return b}
@@ -76,13 +84,18 @@ $('scan').onsubmit=async e=>{
  try{
  const response=await fetch('https://api.github.com/repos/acuzpaul-cloud/meta-ads-scraper/actions/workflows/ads-pages.yml/dispatches',{method:'POST',headers:{Authorization:'Bearer '+token,Accept:'application/vnd.github+json','Content-Type':'application/json'},body:JSON.stringify({ref:'master',inputs:{keywords:keywords.join(','),countries:scope.value,request_id:requestId}}),signal:AbortSignal.timeout(20000)});
  if(!response.ok)throw Error('GitHub 未接受查询（HTTP '+response.status+'）。请检查 Token 权限或任务是否启用。');
- msg.textContent='查询已提交，正在等待 GitHub 采集和发布，通常需几分钟。可在下方链接查看任务进度。';
+ msg.textContent='查询已提交，正在等待 GitHub 采集和发布，通常需几分钟。发布后本页会自动刷新结果。';
  const dispatch=response.status===200?await response.json().catch(()=>null):null;
- for(let i=0;i<90;i++){
+ let runId=dispatch?.workflow_run_id;
+ for(let i=0;i<180;i++){
  await new Promise(r=>setTimeout(r,8000));
- if(i%3===2&&dispatch?.workflow_run_id){
- const run=await fetch('https://api.github.com/repos/acuzpaul-cloud/meta-ads-scraper/actions/runs/'+dispatch.workflow_run_id,{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(10000)}).then(r=>r.ok?r.json():null).catch(()=>null);
- if(run?.status==='completed'&&run.conclusion!=='success')throw Error('GitHub 任务未成功（'+run.conclusion+'），请打开查询任务查看日志。');
+ if(i%3===1){
+ const api='https://api.github.com/repos/acuzpaul-cloud/meta-ads-scraper/actions';
+ if(!runId){const list=await fetch(api+'/workflows/ads-pages.yml/runs?event=workflow_dispatch&per_page=15',{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(10000)}).then(r=>r.ok?r.json():null).catch(()=>null);runId=list?.workflow_runs?.find(r=>r.display_title==='Dashboard scan '+requestId)?.id;}
+ if(runId){
+ const run=await fetch('https://api.github.com/repos/acuzpaul-cloud/meta-ads-scraper/actions/runs/'+runId,{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(10000)}).then(r=>r.ok?r.json():null).catch(()=>null);
+ if(run?.status==='completed'&&run.conclusion!=='success')throw Error('GitHub 任务未成功（'+run.conclusion+'），可重试或查看任务日志。');
+ }
  }
  const data=await fetch('./ads.json?check='+Date.now(),{cache:'no-store',signal:AbortSignal.timeout(7000)}).then(r=>r.ok?r.json():null).catch(()=>null);
  if(data?.requestId===requestId){selected.clear();for(const id of ['q','brand','country','kind','saved'])$(id).value='';await init(data);msg.textContent='查询完成，已加载 '+data.ads.length+' 条广告。';return}

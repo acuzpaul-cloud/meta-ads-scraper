@@ -77,7 +77,9 @@ const spendLine=document.createElement('div');spendLine.textContent=priced?'预�
 if(priced)spendLine.title='来源 AdSpendSpy，累计模型估算，不是广告主实际支出';
 const reachLine=document.createElement('div');reachLine.textContent=reach===null?'覆盖人数 · 无数据':'Meta 公开覆盖 '+reach.toLocaleString('zh-CN')+' 人';
 if(reach!==null)reachLine.title='Meta 披露的数据，不等于美国或全球覆盖人数';
-metrics.append(spendLine,reachLine);duration.after(metrics);
+if(priced)metrics.append(spendLine);
+if(reach!==null)metrics.append(reachLine);
+if(metrics.childElementCount)duration.after(metrics);
 const counts=[['原帖点赞',a.postEngagement?.likes],['评论',a.postEngagement?.comments],['分享',a.postEngagement?.shares]].filter(([,n])=>Number.isSafeInteger(n)&&n>=0);
 if(counts.length){
  const engagement=document.createElement('div');engagement.className='meta';

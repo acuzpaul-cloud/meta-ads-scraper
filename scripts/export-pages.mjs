@@ -42,5 +42,5 @@ for(const row of ads.values()){
  delete row.urls;
 }
 if(!kept)throw Error('No original media could be saved; keeping previous publication');
-await writeFile('docs/ads.json',JSON.stringify({updatedAt:new Date().toISOString(),ads:[...ads.values()]}));
+await writeFile('docs/ads.json',JSON.stringify({requestId:process.env.AD_REQUEST_ID||'',updatedAt:new Date().toISOString(),ads:[...ads.values()]}));
 console.log('Published',ads.size,'records and',kept,'original media files');

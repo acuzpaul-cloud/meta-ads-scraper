@@ -32,7 +32,7 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v6
-      - name: Preserve current published ads and media
+      - name: Preserve published ads and media before updating
         if: github.event_name == 'push'
         run: |
           python - <<'PY'

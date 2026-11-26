@@ -47,14 +47,31 @@ if(counts.length){
  duration.after(engagement);
 }
 el.querySelector('a').href='https://www.facebook.com/ads/library/?id='+a.id;
-const links=(a.landingPages||[]).flatMap(raw=>{try{const url=new URL(raw);return ['https:','http:'].includes(url.protocol)&&!url.username&&!url.password?[url]:[]}catch{return []}});
-if(links.length){
- const section=document.createElement('div');section.className='landing';
- function link(url,label){const a=document.createElement('a');a.href=url.href;a.target='_blank';a.rel='noopener noreferrer';a.textContent=label+' · '+url.hostname.replace(/^www\./,'')+' ↗';a.title=url.href;return a}
- section.append(link(links[0],'查看广告落地页'));
- if(links.length>1){const details=document.createElement('details');const summary=document.createElement('summary');summary.textContent='其他落地页（'+(links.length-1)+'）';details.append(summary);links.slice(1).forEach(url=>details.append(link(url,'打开')));section.append(details)}
- buttons.before(section);
+function validUrl(raw){try{const url=new URL(raw);return ['https:','http:'].includes(url.protocol)&&!url.username&&!url.password?url:null}catch{return null}}
+const links=[...new Map((a.landingPages||[]).map(validUrl).filter(Boolean).map(url=>[url.origin+url.pathname.replace(/\/$/,''),url])).values()];
+const product=url=>/\/(item|products|product|dp|p)\/[^/]/i.test(url.pathname)||/\/(gp\/product)\/[^/]/i.test(url.pathname);
+const deeper=links.filter(url=>url.pathname.replace(/\/+$/,''));
+const products=deeper.filter(product);
+const choices=products.length?products:deeper.length?deeper:links;
+const section=document.createElement('div');section.className='landing';if(choices.length)buttons.before(section);
+function showLanding(){
+ section.replaceChildren();
+ const exact=validUrl(items[idx]?.landingPage);
+ function link(url,label){
+  const anchor=document.createElement('a');anchor.href=url.href;anchor.target='_blank';anchor.rel='noopener noreferrer';anchor.title=url.href;
+  let name=url.pathname.split('/').filter(Boolean).at(-1)||'';try{name=decodeURIComponent(name)}catch{}
+  name=name.replace(/\.html?$/i,'').replace(/-\d{4,}$/,'').replace(/[-_]+/g,' ').trim();
+  anchor.textContent=label+(name?' · '+name:' · '+url.hostname.replace(/^www\./,''))+' ↗';return anchor;
+ }
+ const primary=exact||choices[0];if(!primary)return;
+ if(!exact&&products.length>1&&a.type==='carousel'){
+  const note=document.createElement('small');note.textContent='该轮播包含多个商品页，旧记录未保存逐图对应关系。';section.append(note,document.createElement('br'));
+ }
+ section.append(link(primary,exact?(product(primary)?'当前素材商品页':'当前素材落地页'):product(primary)?'查看商品页':primary.pathname==='/'?'品牌首页（未取得商品链接）':'查看广告落地页'));
+ const others=choices.filter(url=>url.origin+url.pathname!==primary.origin+primary.pathname);
+ if(others.length){const details=document.createElement('details');const summary=document.createElement('summary');summary.textContent='其他链接（'+others.length+'）';details.append(summary);others.forEach(url=>details.append(link(url,product(url)?'商品页':'落地页')));section.append(details)}
 }
+showLanding();
 const check=document.createElement('input');check.type='checkbox';check.disabled=!items.length;check.checked=selected.has(a.id);check.setAttribute('aria-label','选择 '+a.name);check.onchange=()=>{if(check.checked)selected.add(a.id);else selected.delete(a.id);$('count').textContent='显示 '+found.length+' / '+rows.length+' 条 · 已选 '+selected.size+' 张';$('batch').disabled=!selected.size};buttons.append(check);
 function button(label,fn){const b=document.createElement('button');b.textContent=label;b.onclick=fn;buttons.append(b);return b}
 const fav=button(favorites.has(a.id)?'已收藏':'收藏',()=>{if(favorites.has(a.id))favorites.delete(a.id);else favorites.add(a.id);try{localStorage.setItem('meta-preview-favorites',JSON.stringify([...favorites]))}catch{}render()});
@@ -62,7 +79,7 @@ if(items.length){
  if(items.length===1){const dl=document.createElement('a');dl.className='download';dl.textContent='下载素材';dl.href=items[0].file;dl.download=items[0].file.split('/').pop();buttons.append(dl)}
  else {
  const dl=button('下载全部 '+items.length+' 个素材',async()=>{dl.disabled=true;try{await downloadZip(items,'ad-'+a.id+'.zip',true)}catch(e){$('notice').textContent=e.message;dl.textContent='下载失败，点击重试';return}finally{dl.disabled=false}dl.textContent='下载全部 '+items.length+' 个素材'});
- const next=button('下一张 · 1/'+items.length,()=>{idx=(idx+1)%items.length;show();next.textContent='下一张 · '+(idx+1)+'/'+items.length});
+ const next=button('下一张 · 1/'+items.length,()=>{idx=(idx+1)%items.length;show();showLanding();next.textContent='下一张 · '+(idx+1)+'/'+items.length});
  }
 }else button('暂无可下载素材',()=>{}).disabled=true;
 return el}));

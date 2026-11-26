@@ -1,0 +1,49 @@
+name: Scan and publish ad preview
+on:
+  workflow_dispatch:
+    inputs:
+      keywords:
+        description: '逗号分隔的关键词'
+        default: 'povison,homary'
+      countries:
+        description: '逗号分隔的扫描国家代码，例如 US,GB；ALL 为全球'
+        default: 'US,GB'
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: ads-pages
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Scan ads and collect available media
+        env:
+          AD_KEYWORDS: ${{ inputs.keywords }}
+          AD_COUNTRIES: ${{ inputs.countries }}
+        run: |
+          npm run dev > /tmp/meta-app.log 2>&1 &
+          trap 'tail -n 35 /tmp/meta-app.log' EXIT
+          for i in $(seq 1 45); do
+            curl -fs --max-time 10 http://127.0.0.1:3000/api/ads >/dev/null && break
+            sleep 1
+          done
+          curl -fsS --max-time 15 http://127.0.0.1:3000/api/ads >/dev/null
+          node scripts/export-pages.mjs
+          cp node_modules/jszip/dist/jszip.min.js docs/
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+      - uses: actions/deploy-pages@v4
+        id: deploy

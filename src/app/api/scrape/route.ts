@@ -33,7 +33,8 @@ export async function POST(req: NextRequest) {
       try {
         send({ type: 'job_id', job_id: jobId });
 
-        const gen = scrapeAds(params, jobId);
+        let paginationStop: string | undefined;
+        const gen = scrapeAds(params, jobId, undefined, reason => { paginationStop = reason; });
         for await (const batch of gen) {
           // Client hit stop / navigated away — break so the generator's finally
           // closes the browser instead of scraping on in the background.
@@ -87,7 +88,7 @@ export async function POST(req: NextRequest) {
 
         if (session && total > 0) touchSearchSession(session.id);
         completeScrapeJob(jobId, total);
-        send({ type: 'done', total, job_id: jobId });
+        send({ type: 'done', total, job_id: jobId, paginationStop });
       } catch (err) {
         errorScrapeJob(jobId);
         send({ type: 'error', message: err instanceof Error ? err.message : String(err) });

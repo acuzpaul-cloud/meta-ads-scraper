@@ -60,7 +60,12 @@ function show(){
 show();
 el.querySelector('h2').textContent=a.name;
 el.querySelector('small').textContent='Library ID '+a.id;
-el.querySelector('.meta').textContent=(types[a.type]||a.type)+(a.countries.some(c=>c!=='ALL')?' · 查询地区 '+a.countries.filter(c=>c!=='ALL').map(countryLabel).join(' / '):'');
+el.querySelector('.meta').textContent=types[a.type]||a.type;
+const geo=document.createElement('div');geo.className='meta';
+const matched=(a.countries||[]).filter(c=>c!=='ALL');
+geo.textContent=matched.length?'推广地区 '+matched.map(countryLabel).join(' / ')+'（查询命中）':'推广地区 未细分';
+geo.title='查询命中的国家，不代表广告的完整投放范围。';
+el.querySelector('.meta').append(geo);
 const start=document.createElement('div');start.className='meta';
 const stamp=a.startedAt&&new Date(a.startedAt);
 start.textContent='开始投放 '+(stamp&&!Number.isNaN(stamp.getTime())?stamp.toISOString().slice(0,10):'未获取');

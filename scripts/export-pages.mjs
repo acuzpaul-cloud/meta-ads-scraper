@@ -6,6 +6,15 @@ const keywords=[...new Set(process.env.AD_KEYWORDS.split(',').map(x=>x.trim()).f
 const countries=[...new Set(process.env.AD_COUNTRIES.toUpperCase().split(',').map(x=>x.trim()).filter(Boolean))];
 if(!keywords.length||!countries.length||keywords.length*countries.length>8||keywords.some(x=>x.length>100)||countries.some(x=>!(/^(ALL|[A-Z]{2})$/).test(x)))throw Error('Enter 1–8 keyword/country combinations');
 const ads=new Map();
+function landingUrl(raw){
+ if(typeof raw!=='string'||raw.length>4000)return null;
+ try{
+  let url=new URL(raw);
+  if(/(^|\.)facebook\.com$/i.test(url.hostname)&&url.pathname==='/l.php')url=new URL(url.searchParams.get('u')||'');
+  if(!['https:','http:'].includes(url.protocol)||url.username||url.password||/(^|\.)(facebook\.com|instagram\.com|fbcdn\.net)$/i.test(url.hostname))return null;
+  return url.href;
+ }catch{return null}
+}
 for(const keyword of keywords)for(const country of countries){
  const response=await fetch('http://127.0.0.1:3000/api/scrape',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keyword,country,status:'ACTIVE',limit:backfill?60:10,fetch_details:!backfill && country!=='ALL'}),signal:AbortSignal.timeout(240000)});
  if(!response.ok)throw Error('Scan HTTP '+response.status);
@@ -15,6 +24,8 @@ for(const keyword of keywords)for(const country of countries){
  for(const {data:a} of events.filter(x=>x.type==='ad'&&/^\d+$/.test(x.data?.id))){
   if(!ads.has(a.id))ads.set(a.id,{id:a.id,name:a.advertiser_name,type:a.media_type,startedAt:a.started_at||null,daysRunning:a.days_running??null,reach:a.total_reach??null,impressionsMin:a.impressions_min??null,impressionsMax:a.impressions_max??null,spendMin:a.spend_min??null,spendMax:a.spend_max??null,currency:a.spend_currency||'',headline:a.headline||'',body:(a.body_variants||[]).join(' ').slice(0,1800),keywords:[],countries:[],media:[],urls:new Set()});
   const row=ads.get(a.id);
+  const links=[a.link_url,...(a.carousel_cards||[]).map(c=>c.link_url)].map(landingUrl).filter(Boolean);
+  if(links.length)row.landingPages=[...new Set([...(row.landingPages||[]),...links])].slice(0,20);
   if(a.post_engagement)row.postEngagement={...row.postEngagement,...a.post_engagement};
   for(const [key,value] of Object.entries({startedAt:a.started_at,daysRunning:a.days_running,reach:a.total_reach,impressionsMin:a.impressions_min,impressionsMax:a.impressions_max,spendMin:a.spend_min,spendMax:a.spend_max,currency:a.spend_currency}))if((row[key]==null||row[key]==='')&&value!=null)row[key]=value;
   if(!row.keywords.includes(keyword))row.keywords.push(keyword);
@@ -24,16 +35,17 @@ for(const keyword of keywords)for(const country of countries){
 }
 if(!ads.size)throw Error('No real ads returned; keeping previous publication');
 if(existing){
- let dates=0;
+ let dates=0,landing=0;
  for(const row of existing.ads){
   const fresh=ads.get(row.id);if(!fresh)continue;
+  if(fresh.landingPages?.length){row.landingPages=fresh.landingPages;landing++}
   for(const key of ['startedAt','daysRunning','reach','impressionsMin','impressionsMax','spendMin','spendMax','currency','postEngagement']){
    if(fresh[key]!=null&&fresh[key]!==''){if(key==='startedAt'&&!row[key])dates++;row[key]=fresh[key]}
   }
  }
- if(!dates)throw Error('No start dates matched the existing cards');
+ if(!dates&&!landing)throw Error('No dates or landing pages matched the existing cards');
  await writeFile('docs/ads.json',JSON.stringify(existing));
- console.log('Backfilled dates:',dates,'of',existing.ads.length);
+ console.log('Backfilled dates:',dates,'Landing pages:',landing,'of',existing.ads.length);
  process.exit(0);
 }
 await mkdir('docs/media',{recursive:true});

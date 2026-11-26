@@ -44,7 +44,8 @@ function render(){
 const q=$('q').value.trim().toLowerCase();
 found=rows.filter(a=>(!$('brand').value||a.keywords.includes($('brand').value))&&(!$('country').value||a.countries.includes($('country').value))&&(!$('kind').value||a.type===$('kind').value)&&(!$('saved').value||favorites.has(a.id))&&[a.id,a.name,a.headline,a.body,...a.keywords].join(' ').toLowerCase().includes(q));
 updateBatchControls();
-$('grid').replaceChildren(...found.map(a=>{
+const cards=document.createDocumentFragment();
+for(const a of found){
 const el=document.createElement('article');
 el.innerHTML='<div class="cover"></div><div class="detail"><h2></h2><small></small><div class="meta"></div><a target="_blank" rel="noopener noreferrer">查看原广告 ↗</a><div class="buttons"></div></div>';
 const cover=el.querySelector('.cover'), buttons=el.querySelector('.buttons');
@@ -124,7 +125,9 @@ if(items.length){
  const next=button('下一张 · 1/'+items.length,()=>{idx=(idx+1)%items.length;show();showLanding();next.textContent='下一张 · '+(idx+1)+'/'+items.length});
  }
 }else button('暂无可下载素材',()=>{}).disabled=true;
-return el}));
+cards.append(el);
+}
+$('grid').replaceChildren(cards);
 }
 for(const id of ['q','brand','country','kind','saved'])$(id).addEventListener('input',render);
 $('batchMode').onclick=()=>{batchMode=!batchMode;if(!batchMode)selected.clear();render()};
@@ -174,7 +177,7 @@ $('scan').onsubmit=async e=>{
  }
  }
  const data=await fetch('./ads.json?check='+Date.now(),{cache:'no-store',signal:AbortSignal.timeout(7000)}).then(r=>r.ok?r.json():null).catch(()=>null);
- if(data?.requestId===requestId){selected.clear();for(const id of ['q','brand','country','kind','saved'])$(id).value='';await init(data);msg.textContent='查询完成，已加载 '+data.ads.length+' 条广告。';return}
+ if(data?.requestId===requestId){selected.clear();for(const id of ['q','brand','country','kind','saved'])$(id).value='';await init(data);msg.textContent=(data.scans?.some(s=>s.partial)?'扫描受限，已加载部分结果 ':'查询完成，已加载 ')+data.ads.length+' 条广告。';return}
  }
  msg.textContent='暂未检测到本次发布，请稍后刷新页面。';
  }catch(err){msg.textContent=err.message}finally{button.disabled=false}
@@ -198,7 +201,7 @@ $('spend-scenario').addEventListener('submit',e=>{
  output.textContent='情景花费 '+usd.format(units*lo)+' – '+usd.format(units*hi)+'，不是竞品实际花费。';
 });
 async function init(published){
- try{const data=published||await fetch('./ads.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.json()});if(!Array.isArray(data.ads))throw Error();rows=data.ads;$('notice').textContent='已加载已发布素材'}catch{$('notice').textContent='当前是旧版样本，尚未发布原素材'}
+ try{const data=published||await fetch('./ads.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.json()});if(!Array.isArray(data.ads))throw Error();rows=data.ads;$('notice').textContent=(data.scans?.some(s=>s.partial)?'扫描受限 · 以下为已取得的部分结果':'已加载已发布素材')}catch{$('notice').textContent='当前是旧版样本，尚未发布原素材'}
  function options(id,values,label){$(id).options.length=1;for(const v of [...new Set(values)].sort())$(id).add(new Option(label(v),v))}
  indexCounts(rows);
  options('brand',rows.flatMap(a=>a.keywords),v=>v);options('country',rows.flatMap(a=>a.countries),countryLabel);render();

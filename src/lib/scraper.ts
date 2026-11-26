@@ -286,6 +286,8 @@ export async function* scrapeAds(
   // closed — otherwise the launched browser would leak with no ref to close it.
   let browser: import('playwright').Browser | undefined;
   let rawHtml = '';
+  let pagingResponses = 0;
+  let pagingBlocked = false;
 
   try {
     const b = await launchBrowser(true);
@@ -303,6 +305,7 @@ export async function* scrapeAds(
 
       // Block detection — Meta pushing back on Ad Library / GraphQL traffic.
       if ((url.includes('ads/library') || url.includes('/api/graphql')) && isBlockStatus(status)) {
+        if (response.request().method() !== 'GET') pagingBlocked = true;
         reportBlocked(response.request().method() === 'GET' ? 'page-nav' : 'pagination');
         return;
       }
@@ -325,6 +328,8 @@ export async function* scrapeAds(
         const text = await response.text().catch(() => '');
         if (!text.includes('ad_archive_id')) return;
         reportOk();
+        pagingResponses++;
+        try { pendingJsons.push(JSON.parse(text)); return; } catch { /* streamed JSON */ }
         for (const line of text.split('\n')) {
           const t = line.trim();
           if (t[0] !== '{') continue;
@@ -401,12 +406,21 @@ export async function* scrapeAds(
     for (let i = 0; i < maxScrolls && collectedAds.length < limit; i++) {
       if (unlimited && Date.now() >= deadline) { onPaginationStop?.('TIME_BUDGET'); break; }
       await acquire();
-      await page.evaluate(() => {
-        if (document.body) {
-          window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-        }
-      }).catch(() => {});
-      await randomDelay(2500, 4000);
+      // Scroll the last visible ad into view, including nested scroll containers.
+      // A real wheel event can bring the pagination sentinel into view.
+      const lastCard = page.getByText(/^(?:Library ID|资料库编号|广告资料库编号)\s*[:：]/i).last();
+      if (await lastCard.count().catch(() => 0)) {
+        await lastCard.scrollIntoViewIfNeeded({ timeout: 2500 }).catch(() => {});
+      }
+      const v = page.viewportSize();
+      if (v) await page.mouse.move(Math.floor(v.width * 0.65), Math.floor(v.height * 0.75)).catch(() => {});
+      for (let step = 0; step < 3; step++) {
+        await page.mouse.wheel(0, v?.height ?? 900).catch(() => {});
+        await randomDelay(400, 750);
+      }
+      const more = page.getByRole('button', { name: /^(?:Load more(?: results)?|See more results|加载更多(?:结果)?|查看更多结果)$/i }).last();
+      if (await more.isVisible().catch(() => false)) await more.click({ timeout: 2500 }).catch(() => {});
+      await randomDelay(2200, 3600);
 
       // Drain any GraphQL POST responses collected since last scroll
       const batch = flushPending(pendingJsons, jobId, seen);
@@ -416,8 +430,8 @@ export async function* scrapeAds(
         noNewCount = 0;
       } else {
         noNewCount++;
-        if (noNewCount >= 4) {
-          if (unlimited) onPaginationStop?.('NO_MORE_RESULTS_OBSERVED');
+        if (noNewCount >= (unlimited ? 6 : 4) || pagingBlocked) {
+          if (unlimited) onPaginationStop?.(pagingBlocked ? 'PAGINATION_BLOCKED' : 'PAGINATION_UNCONFIRMED');
           break;
         }
       }
@@ -430,7 +444,7 @@ export async function* scrapeAds(
       yield await out(last);
     }
 
-    console.log('[scraper] done, total:', collectedAds.length);
+    console.log('[scraper] done, total:', collectedAds.length, 'ad GraphQL responses:', pagingResponses);
     // Any ads parsed means the ad_archive_id payload shape still works. We don't
     // mark search "down" on zero results — an empty page is also a valid "no
     // matches", which we can't reliably tell apart from a structure change here.

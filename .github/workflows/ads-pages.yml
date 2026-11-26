@@ -32,30 +32,6 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        if: github.event_name == 'workflow_dispatch'
-        with:
-          node-version: '24'
-      - run: npm ci
-        if: github.event_name == 'workflow_dispatch'
-      - run: npx playwright install --with-deps chromium
-        if: github.event_name == 'workflow_dispatch'
-      - name: Scan ads and collect available media
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          AD_KEYWORDS: ${{ inputs.keywords }}
-          AD_COUNTRIES: ${{ inputs.countries }}
-          AD_REQUEST_ID: ${{ inputs.request_id }}
-        run: |
-          npm run dev > /tmp/meta-app.log 2>&1 &
-          trap 'tail -n 35 /tmp/meta-app.log' EXIT
-          for i in $(seq 1 45); do
-            curl -fs --max-time 10 http://127.0.0.1:3000/api/ads >/dev/null && break
-            sleep 1
-          done
-          curl -fsS --max-time 15 http://127.0.0.1:3000/api/ads >/dev/null
-          node scripts/export-pages.mjs
-          cp node_modules/jszip/dist/jszip.min.js docs/
       - name: Preserve current published ads and media
         if: github.event_name == 'push'
         run: |
@@ -86,6 +62,31 @@ jobs:
           pathlib.Path('docs/jszip.min.js').write_bytes(read('jszip.min.js', 1024 * 1024))
           print(f'Preserved {len(ads)} ads and {len(paths)} media files')
           PY
+      - uses: actions/setup-node@v6
+        if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[backfill-dates]')
+        with:
+          node-version: '24'
+      - run: npm ci
+        if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[backfill-dates]')
+      - run: npx playwright install --with-deps chromium
+        if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[backfill-dates]')
+      - name: Scan ads and collect available media
+        if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[backfill-dates]')
+        env:
+          AD_KEYWORDS: ${{ inputs.keywords }}
+          AD_COUNTRIES: ${{ inputs.countries }}
+          AD_BACKFILL: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[backfill-dates]') && '1' || '0' }}
+          AD_REQUEST_ID: ${{ inputs.request_id }}
+        run: |
+          npm run dev > /tmp/meta-app.log 2>&1 &
+          trap 'tail -n 35 /tmp/meta-app.log' EXIT
+          for i in $(seq 1 45); do
+            curl -fs --max-time 10 http://127.0.0.1:3000/api/ads >/dev/null && break
+            sleep 1
+          done
+          curl -fsS --max-time 15 http://127.0.0.1:3000/api/ads >/dev/null
+          node scripts/export-pages.mjs
+          cp node_modules/jszip/dist/jszip.min.js docs/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: docs

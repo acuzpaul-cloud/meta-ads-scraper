@@ -1,3 +1,4 @@
+import { waitForScroll } from './scrollDemand';
 import type { Page, BrowserContext } from 'playwright';
 import { launchBrowser, createContext, closeBrowser, randomDelay } from './browser';
 import { parseGraphQLResponse, parseAdDetails } from './parser';
@@ -406,6 +407,10 @@ export async function* scrapeAds(
 
     for (let i = 0; i < maxScrolls && collectedAds.length < limit; i++) {
       if (unlimited && Date.now() >= deadline) { onPaginationStop?.('TIME_BUDGET'); break; }
+      if (noNewCount === 0 && !await waitForScroll(deadline)) {
+        onPaginationStop?.(Date.now() >= deadline ? 'TIME_BUDGET' : 'USER_IDLE');
+        break;
+      }
       await acquire();
       // Scroll the last visible ad into view, including nested scroll containers.
       // A real wheel event can bring the pagination sentinel into view.

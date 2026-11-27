@@ -1,6 +1,6 @@
 <!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>广告素材观察台</title><style>
 *{box-sizing:border-box}body{margin:0;background:#f3f5f8;color:#182235;font:15px system-ui,sans-serif}header{background:#101e36;color:white;padding:44px max(24px,calc((100% - 1120px)/2))}h1{margin:10px 0;font-size:clamp(32px,6vw,50px)}p{line-height:1.6}header p{color:#cbd5e8}main{max-width:1168px;margin:auto;padding:28px 24px}.controls{display:flex;flex-wrap:wrap;gap:10px}input,select,a.button{font:inherit;padding:11px 13px;border:1px solid #cad3df;border-radius:9px;background:#fff;color:inherit}input{flex:1;min-width:190px}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(245px,1fr));gap:16px}article{background:#fff;border:1px solid #dbe2ec;border-radius:14px;overflow:hidden}.cover{padding:24px 18px;background:#e6efff;color:#234c92;font-size:23px;font-weight:700}.video{background:#ece6ff;color:#53388e}.image{background:#def3e9;color:#285b46}.detail{padding:16px 18px}h2{font-size:17px;margin:0 0 8px;overflow-wrap:anywhere}small,#count{color:#4b5b73}a{color:#2455a4}.links{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0}.links a{color:#dbe9ff}.detail a{display:inline-block;margin-top:15px}button{margin-left:8px;cursor:pointer;border:1px solid #cad3df;border-radius:7px;background:white;padding:5px 9px}.cover{padding:0;min-height:128px;display:grid;place-items:center}.cover img,.cover video{width:100%;height:190px;object-fit:contain;background:#101e36}.meta{margin-top:8px}.detail button{margin:6px 5px 0 0}.detail a{margin-right:8px}button:disabled{opacity:.45} a.download{font-weight:700} .tag{font-size:13px;padding:12px}.scan{padding:20px;border:1px solid #dbe2ec;background:white;border-radius:14px;margin-bottom:23px}.scan details{margin-top:12px}.scan summary{cursor:pointer}.scan .primary{background:#2455a4;color:white;font:inherit;padding:10px 22px;margin:0}.scan p:empty{display:none}dialog{border:1px solid #dbe2ec;border-radius:14px;padding:24px;width:min(440px,calc(100% - 32px))}dialog::backdrop{background:#101e3666}dialog input{width:100%}.landing{margin-top:10px;padding:8px 0;border-top:1px solid #e2e8f0;overflow-wrap:anywhere}.landing a{margin-top:0}.landing details a{display:block;margin-top:6px}.landing .product-button{display:inline-flex;align-items:center;border:1px solid #cad3df;border-radius:7px;padding:6px 10px;text-decoration:none;font-size:13px}.landing .product-button:hover{background:#edf3ff}.batch-bar{margin-top:16px}.batch-bar button{margin:0 6px 5px 0}.grid article{position:relative;content-visibility:auto;contain-intrinsic-size:auto 500px}.card-picker{position:absolute;z-index:2;top:9px;left:9px;width:38px;height:38px;display:grid;place-items:center;border:1px solid #aebbd0;border-radius:9px;background:white;cursor:pointer;box-shadow:0 2px 7px #15223a33}.card-picker input{min-width:0;width:19px;height:19px;margin:0;padding:0;accent-color:#2455a4;cursor:pointer}.query-overlay{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:#101e3680;padding:20px}.query-overlay[hidden]{display:none}.query-overlay-box{background:#fff;border-radius:16px;padding:28px;text-align:center;width:min(360px,100%);box-shadow:0 12px 40px #101e3633}.query-spinner{width:42px;height:42px;margin:0 auto 16px;border:4px solid #dbe7fa;border-top-color:#2455a4;border-radius:50%;animation:query-spin .85s linear infinite}.query-overlay-box p{margin:8px 0 0;color:#4b5b73}@keyframes query-spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.query-spinner{animation:none}}.card-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}.card-stat{padding:8px;background:#f2f5fa;border-radius:7px}.card-stat strong{display:block;font-size:17px;margin-top:3px}.load-results{text-align:center;margin:18px 0;color:#4b5b73}.load-results button{margin:8px}</style>
-<header><small style="color:#aaceff">META ADS · 样本预览</small><h1>广告素材观察台</h1><p>先收集所有素材类型，再按关键词、国家或类型筛选。搜索仅筛选已发布数据，在本页查询新广告，完成后自动载入素材卡片。</p><div class="links"><a href="https://github.com/acuzpaul-cloud/meta-ads-scraper/actions/runs/45736803076">查看样本来源</a></div></header>
+<header><small style="color:#aaceff">META ADS · 样本预览</small><h1>广告素材观察台</h1><p>输入关键词查询，找到的广告会陆续出现在这里。向下滚动可继续采集。</p><div class="links"><a href="https://github.com/acuzpaul-cloud/meta-ads-scraper/actions/runs/45736803076">查看样本来源</a></div></header>
 <main><form id="scan" class="scan"><h2>查询新广告</h2><div class="controls"><input id="keywords" required maxlength="500" placeholder="输入关键词，例如 Homary 或 dining table" aria-label="查询关键词"><select id="scope" aria-label="查询国家"><option value="ALL">全部国家</option></select><button class="primary" type="submit">查询</button></div><p id="scanStatus" role="status"></p></form><details class="scan" id="us-spend-calc"><summary>美国花费估算工具（免费）</summary><p>美国竞品广告没有公开花费。只有拿到同一条广告在美国、同一统计周期的预估展示量或链接点击量，才适合算区间。成本区间可参考你自己的美国同类广告。此处不读取或改写任何卡片数据。</p>
 <form id="spend-scenario"><div class="controls"><select id="spend-basis" aria-label="计算口径"><option value="impressions">预估展示量 × CPM</option><option value="clicks">预估链接点击 × CPC</option></select><input id="spend-volume" type="number" step="1" min="1" required placeholder="预估展示次数" aria-label="预估展示次数"></div><p class="controls"><input id="spend-low" type="number" min="0.01" step="0.01" required placeholder="最低 CPM（美元）" aria-label="最低 CPM（美元）"><input id="spend-high" type="number" min="0.01" step="0.01" required placeholder="最高 CPM（美元）" aria-label="最高 CPM（美元）"><button class="primary" type="submit">计算区间</button></p><output id="spend-result" role="status"></output></form></details><h2>筛选已加载的结果</h2><div class="controls"><input id="q" aria-label="搜索" placeholder="搜索关键词、广告文案、广告主或 Library ID"><select id="brand" aria-label="采集关键词"><option value="">全部采集关键词</option></select><select id="country" aria-label="扫描国家"><option value="">全部地区</option></select><select id="kind" aria-label="素材类型"><option value="">全部素材类型</option><option value="carousel">轮播</option><option value="image">图片</option><option value="video">视频</option></select><select id="saved" aria-label="收藏状态"><option value="">全部记录</option><option value="1">仅收藏</option></select></div><div class="batch-bar"><button id="batchMode" type="button" aria-pressed="false">批量下载</button><span id="batchTools" hidden><button id="all" type="button">全选当前结果</button><button id="clear" type="button">清空已选</button><button id="batch" type="button" disabled>下载已选 ZIP</button></span> <span id="notice" role="status"></span></div><p id="count" role="status"></p><section id="grid" class="grid" aria-label="广告卡片"></section><div id="resultsEnd" class="load-results"><span id="loadProgress" role="status"></span><button id="loadMore" type="button" hidden>加载更多</button></div></main><div id="queryOverlay" class="query-overlay" hidden><div class="query-overlay-box" role="status" aria-live="polite"><div class="query-spinner" aria-hidden="true"></div><strong>加载中</strong><p id="queryProgress">正在提交查询…</p></div></div>
 <script src="./jszip.min.js" defer></script><script>
@@ -39,13 +39,22 @@ function updateBatchControls(){
  $('batch').disabled=batchBusy||!selected.size;
  for(const box of $('grid').querySelectorAll('.card-picker input'))box.disabled=batchBusy;
 }
+const base='https://tucoiva-ad-query.acuzpaul-cloud.workers.dev';
+let liveSession=null;
+function geography(ad){
+ const known=(ad.deliveryCountries||[]).filter(c=>/^[A-Z]{2}$/.test(c));
+ return known.length?known:['US'];
+}
 const batchSize=30;
 let renderedCount=0,partialCatalog=false;
-function render(){
+function matches(a){
 const q=$('q').value.trim().toLowerCase();
-found=rows.filter(a=>(!$('brand').value||a.keywords.includes($('brand').value))&&(!$('country').value||a.countries.includes($('country').value))&&(!$('kind').value||a.type===$('kind').value)&&(!$('saved').value||favorites.has(a.id))&&[a.id,a.name,a.headline,a.body,...a.keywords].join(' ').toLowerCase().includes(q));
+return (!$('brand').value||a.keywords.includes($('brand').value))&&(!$('country').value||geography(a).includes($('country').value))&&(!$('kind').value||a.type===$('kind').value)&&(!$('saved').value||favorites.has(a.id))&&[a.id,a.name,a.headline,a.body,...a.keywords].join(' ').toLowerCase().includes(q);
+}
+function render(){
+found=rows.filter(matches);
 updateBatchControls();
-renderedCount=0;$('grid').replaceChildren();appendMore();
+renderedCount=0;$('grid').replaceChildren();appendMore(Boolean(liveSession));
 }
 function appendMore(showAll=false){
 const cards=document.createDocumentFragment();
@@ -68,9 +77,9 @@ el.querySelector('h2').textContent=a.name;
 el.querySelector('small').textContent='Library ID '+a.id;
 el.querySelector('.meta').textContent=types[a.type]||a.type;
 const geo=document.createElement('div');geo.className='meta';
-const matched=(a.countries||[]).filter(c=>c!=='ALL');
-geo.textContent=matched.length?'推广地区 '+matched.map(countryLabel).join(' / '):'推广地区 未细分';
-geo.title='查询命中的国家，不代表广告的完整投放范围。';
+const matched=geography(a);
+geo.textContent='推广地区 '+matched.map(countryLabel).join(' / ')+(a.deliveryCountries?.length?'':'（默认）');
+geo.title=a.deliveryCountries?.length?'资料库披露的地区':'来源未披露地区，按设置显示美国。';
 el.querySelector('.meta').append(geo);
 const start=document.createElement('div');start.className='meta';
 const stamp=a.startedAt&&new Date(a.startedAt);
@@ -134,7 +143,7 @@ if(batchMode&&items.length){
 function button(label,fn){const b=document.createElement('button');b.textContent=label;b.onclick=fn;buttons.append(b);return b}
 const fav=button(favorites.has(a.id)?'已收藏':'收藏',()=>{if(favorites.has(a.id))favorites.delete(a.id);else favorites.add(a.id);try{localStorage.setItem('meta-preview-favorites',JSON.stringify([...favorites]))}catch{}render()});
 if(items.length){
- if(items.length===1){const dl=document.createElement('a');dl.className='download';dl.textContent='下载素材';dl.href=items[0].file;dl.download=items[0].file.split('/').pop();buttons.append(dl)}
+ if(items.length===1){const dl=document.createElement('a');dl.className='download';dl.textContent='下载素材';dl.href=items[0].downloadUrl||items[0].file;dl.download=a.id+'-1';buttons.append(dl)}
  else {
  const dl=button('下载全部 '+items.length+' 个素材',async()=>{dl.disabled=true;try{await downloadZip(items,'ad-'+a.id+'.zip',true)}catch(e){$('notice').textContent=e.message;dl.textContent='下载失败，点击重试';return}finally{dl.disabled=false}dl.textContent='下载全部 '+items.length+' 个素材'});
  const next=button('下一张 · 1/'+items.length,()=>{idx=(idx+1)%items.length;show();showLanding();next.textContent='下一张 · '+(idx+1)+'/'+items.length});
@@ -144,17 +153,30 @@ cards.append(el);
 }
 $('grid').append(cards);
 renderedCount=visibleEnd;
-$('loadMore').hidden=renderedCount>=found.length;
-$('loadProgress').textContent=!found.length?'':renderedCount<found.length?'已展示 '+renderedCount+' / '+found.length+' 条':partialCatalog?'已展示 '+found.length+' 条已采集广告，来源分页尚未确认完成。':'已展示全部 '+found.length+' 条已采集广告。';
+$('loadMore').hidden=renderedCount>=found.length&&(!liveSession||liveSession.phase!=='open');
+$('loadProgress').textContent=liveSession?(liveSession.phase==='open'?'下拉继续采集':'正在归档素材'):!found.length?'':renderedCount<found.length?'已展示 '+renderedCount+' / '+found.length+' 条':partialCatalog?'已展示 '+found.length+' 条已采集广告，来源分页尚未确认完成。':'已展示全部 '+found.length+' 条已采集广告。';
 }
-$('loadMore').onclick=()=>appendMore(true);
-// Start the next batch on the first downward movement, not at the sentinel.
+$('loadMore').onclick=onDownwardScroll;
 let lastScrollY=window.scrollY, nextBatchAt=0;
-function onDownwardScroll(){
- if(renderedCount>=found.length||!$('queryOverlay').hidden||performance.now()<nextBatchAt)return;
- nextBatchAt=performance.now()+350;
- appendMore(true);
+async function onDownwardScroll(){
+ const session=liveSession;
+ if(performance.now()<nextBatchAt)return;
+ nextBatchAt=performance.now()+450;
+ if(renderedCount<found.length)appendMore(!session);
+ if(!session||session.phase!=='open'||session.sending)return;
+ session.sending=true;
+ try{
+  const seq=session.seq+1;
+  const r=await fetch(base+'/more?requestId='+session.id+'&seq='+seq,{method:'POST',signal:AbortSignal.timeout(5000)});
+  if(!r.ok)throw Error();
+  session.seq=seq;
+  if(liveSession===session)$('scanStatus').textContent='已请求继续向下采集';
+ }catch{if(liveSession===session)$('scanStatus').textContent='下拉请求未送达，可再次下拉。'}
+ finally{session.sending=false}
 }
+let touchY;
+window.addEventListener('touchstart',e=>{touchY=e.touches[0]?.clientY},{passive:true});
+window.addEventListener('touchmove',e=>{const y=e.touches[0]?.clientY;if(y<touchY)onDownwardScroll();touchY=y},{passive:true});
 window.addEventListener('wheel',event=>{if(event.deltaY>0&&!event.ctrlKey)onDownwardScroll()},{passive:true});
 window.addEventListener('scroll',()=>{
  const y=window.scrollY, movedDown=y>lastScrollY;
@@ -175,7 +197,7 @@ $('batch').onclick=async()=>{
 async function downloadZip(items,filename,requireAll=false){
  if(!window.JSZip)throw Error('ZIP 模块尚未发布');
  const zip=new JSZip();let failures=0;
- for(const [i,m] of items.entries()){ $('notice').textContent='正在打包 '+(i+1)+'/'+items.length;try{const r=await fetch(m.file);if(!r.ok)throw Error();zip.file(m.file.split('/').pop(),await r.blob())}catch{failures++}}
+ for(const [i,m] of items.entries()){ $('notice').textContent='正在打包 '+(i+1)+'/'+items.length;try{const r=await fetch(m.downloadUrl||m.file);if(!r.ok)throw Error();const blob=await r.blob();zip.file(m.downloadUrl?m.archiveName+'.'+(blob.type.split('/')[1]||'bin').split(';')[0]:m.file.split('/').pop(),blob)}catch{failures++}}
  if(failures===items.length)throw Error('没有可下载文件');
  if(requireAll && failures)throw Error(failures+' 个素材加载失败，未下载不完整的 ZIP。请重试。');
  const url=URL.createObjectURL(await zip.generateAsync({type:'blob'}));const a=document.createElement('a');a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
@@ -185,11 +207,44 @@ const scope=$('scope');
 const countryCodes='BR IN GB US CA AR AU AT BE CL CN CO HR DK DO EG FI FR DE GR HK ID IE IL IT JP JO KW LB MY MX NL NZ NG NO PK PA PE PH PL RU SA RS SG ZA KR ES SE CH TW TH TR AE VE PT LU BG CZ SI IS SK LT TT BD LK KE HU MA CY JM EC RO BO GT CR QA SV HN NI PY UY PR BA PS TN BH VN GH MU UA MT BS MV OM MK LV EE IQ DZ AL NP MO ME SN GE BN UG GP BB AZ TZ LY MQ CM BW ET KZ NA MG NC MD FJ BY JE GU YE ZM IM HT KH AW PF AF BM GY AM MW AG RW GG GM FO LC KY BJ AD GD VI BZ VC MN MZ ML AO GF UZ DJ BF MC TG GL GA GI CD KG PG BT KN SZ LS LA LI MP SR SC VG TC DM MR AX SM SL NE CG AI YT CV GN TM BI TJ VU SB ER WS AS FK GQ TO KM PW FM CF SO MH VA TD KI ST TV NR RE LR ZW CI MM AN AQ BQ BV IO CX CC CK CW GS GW HM XK MS NU NF PN BL SH MF PM SX SS SJ TL TK UM WF EH SY'.split(' ');
 const countries=countryCodes.map(code=>[code,countryLabel(code)]);
 for(const [code,label] of countries.sort((a,b)=>a[1].localeCompare(b[1],'zh-CN')))scope.add(new Option(label,code));
+function receive(session,events){
+ for(const {seq,card} of events){
+  if(seq<=session.cursor)continue;
+  session.cursor=seq;
+  if(session.ids.has(card.id))continue;
+  session.ids.add(card.id);
+  card.media.forEach((m,i)=>{
+   m.downloadUrl=base+'/asset?requestId='+session.id+'&ad='+card.id+'&index='+i;
+   m.archiveName=card.id+'-'+(i+1);
+  });
+  rows.push(card);
+  if(matches(card))found.push(card);
+  for(const word of card.keywords)if(!Array.from($('brand').options).some(o=>o.value===word))$('brand').add(new Option(word,word));
+ }
+ if(events.length){indexCounts(rows);appendMore(true);updateBatchControls();$('scanStatus').textContent='正在同步 · 已收到 '+rows.length+' 条广告'}
+}
+async function follow(session){
+ while(liveSession===session){
+  try{
+   const r=await fetch(base+'/feed?requestId='+session.id+'&after='+session.cursor,{cache:'no-store',signal:AbortSignal.timeout(14000)});
+   if(!r.ok)throw Error();
+   const data=await r.json();
+   if(liveSession!==session)return;
+   session.phase=data.phase;receive(session,data.events);
+   if(data.phase!=='open'&&data.events.length===0){
+    $('loadMore').hidden=true;$('loadProgress').textContent='本轮采集已停止，正在归档素材。';return;
+   }
+  }catch{
+   if(liveSession!==session)return;
+   $('scanStatus').textContent='实时连接中断，正在从上次位置重连…';
+   await new Promise(resolve=>setTimeout(resolve,1500));
+  }
+ }
+}
 $('scan').onsubmit=async e=>{
  e.preventDefault();
  const keywords=$('keywords').value.trim(),msg=$('scanStatus');
  if(!keywords){msg.textContent='请输入关键词。';return}
- const base='https://tucoiva-ad-query.acuzpaul-cloud.workers.dev';
  const button=$('scan').querySelector('button[type=submit]');
  button.disabled=true;
  const overlay=$('queryOverlay'),main=document.querySelector('main');
@@ -202,27 +257,32 @@ $('scan').onsubmit=async e=>{
    const errors={NOT_CONFIGURED:'查询服务正在配置中，暂时不能启动新采集。',INVALID_INPUT:'请检查关键词格式。多个关键词用逗号分隔，每次最多 8 个。',GITHUB_REJECTED:'GitHub 未接受采集任务（'+(sent.upstreamStatus||r.status)+'）。'};
    throw Error(errors[sent.error]||'查询服务暂时不可用。');
   }
+  selected.clear();for(const id of ['q','brand','country','kind','saved'])$(id).value='';
+  const session={id:sent.requestId,cursor:0,seq:0,ids:new Set(),phase:'open'};
+  liveSession=session;
+  await init({ads:[],scans:[]});
+  $('notice').textContent='';overlay.hidden=true;main.inert=false;
+  void follow(session);
   const labels={waiting:'等待任务启动',queued:'正在排队',in_progress:'正在采集并发布',completed:'采集完成，正在等待页面更新'};
   const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   const deadline=Date.now()+32*60*1000;let n=0;
   progress('查询已提交，正在等待任务启动。');
   while(Date.now()<deadline){
    await pause(8000);
-   const data=await fetch('./ads.json?check='+Date.now(),{cache:'no-store',signal:AbortSignal.timeout(7000)}).then(r=>r.ok?r.json():null).catch(()=>null);
+   const data=(session.phase!=='open'||n%4===0)&&await fetch('./ads.json?check='+Date.now(),{cache:'no-store',signal:AbortSignal.timeout(7000)}).then(r=>r.ok?r.json():null).catch(()=>null);
    if(data?.requestId===sent.requestId){
-    selected.clear();for(const id of ['q','brand','country','kind','saved'])$(id).value='';
-    await init(data);
+    const shown=renderedCount;liveSession=null;await init(data);if(shown>batchSize)appendMore(true);
     msg.textContent=(data.scans?.some(s=>s.partial||s.stop==='NO_MORE_RESULTS_OBSERVED')?'未确认翻完，已加载 ':'查询完成，已加载 ')+data.ads.length+' 条广告。';
     return;
    }
    if(n++%2===0){
     const status=await fetch(base+'/status?requestId='+encodeURIComponent(sent.requestId),{signal:AbortSignal.timeout(15000)}).then(r=>r.ok?r.json():null).catch(()=>null);
-    if(status?.status==='completed'&&status.conclusion!=='success')throw Error('本次采集未成功（'+status.conclusion+'），已保留原有广告。');
-    if(labels[status?.status])progress(labels[status.status]+'…');
+    if(status?.status==='completed'&&status.conclusion!=='success')throw Error('本次采集未成功（'+status.conclusion+'），已保留本次收到的卡片。');
+    if(!rows.length&&labels[status?.status])progress(labels[status.status]+'…');
    }
   }
-  msg.textContent='本次等待已超时，当前结果保持不变。';
- }catch(error){msg.textContent=error.message||'查询未完成，请重试。'}finally{overlay.hidden=true;main.inert=false;button.disabled=false}
+  msg.textContent='等待归档超时，已收到的广告仍可查看。';
+ }catch(error){msg.textContent=error.message||'查询未完成，请重试。'}finally{liveSession=null;overlay.hidden=true;main.inert=false;button.disabled=false}
 };
 function updateSpendInputs(){
  const isCpm=$('spend-basis').value==='impressions';

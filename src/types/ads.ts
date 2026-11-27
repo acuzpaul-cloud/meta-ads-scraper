@@ -56,6 +56,7 @@ export interface Ad {
   impressions_min?: number;
   impressions_max?: number;
   funding_entity?: string;
+  delivery_countries?: string[];
   demographic_distribution: DemographicEntry[];
   region_distribution: RegionEntry[];
   ad_snapshot_url?: string;

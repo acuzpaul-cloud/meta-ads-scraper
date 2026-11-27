@@ -1,3 +1,4 @@
+import {live, publish, events as readEvents} from './live-feed.mjs';
 import {mkdir,writeFile,readFile} from 'node:fs/promises';
 const backfill=process.env.AD_BACKFILL==='1';
 const existing=backfill?JSON.parse(await readFile('docs/ads.json','utf8')):null;
@@ -17,20 +18,13 @@ function landingUrl(raw){
   return url.href;
  }catch{return null}
 }
-for(const keyword of keywords)for(const country of countries){
- const filters=['all'];
- for(const media of filters){
- try {
- const response=await fetch('http://127.0.0.1:3000/api/scrape',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keyword,country,status:'ACTIVE',limit:backfill?60:0,ad_type:media==='all'?undefined:media,paginationBudgetMs:Math.max(30000,Math.floor(perSearch/(media==='all'?2:6))),fetch_details:!backfill && /^(GB|FR|DE|IT|ES|PL|NL|BE|IE|AT|SE|DK|FI|PT|GR|CZ|RO|HU|SK|SI|HR|BG|LT|LV|EE|LU|MT|CY)$/.test(country)}),signal:AbortSignal.timeout(backfill?240000:Math.max(30000,Math.floor(perSearch/(media==='all'?2:6)))+45000)});
- if(!response.ok)throw Error('Scan HTTP '+response.status);
- const events=(await response.text()).split(/\r?\n/).filter(x=>x.startsWith('data: ')).map(x=>JSON.parse(x.slice(6)));
- for(const e of events.filter(x=>x.type==='error'||x.type==='warning'))console.log(keyword,country,e.type,e.message);
- const done=events.find(x=>x.type==='done');
- const warnings=events.filter(x=>x.type==='warning').map(x=>x.code);
- if(backfill&&(!done||events.some(x=>x.type==='error')))throw Error('Incomplete backfill: '+keyword+' / '+country);
- if(!backfill&&media==='all'&&['PAGINATION_UNCONFIRMED','NO_MORE_RESULTS_OBSERVED'].includes(done?.paginationStop)&&!warnings.includes('META_RATE_LIMITED'))filters.push('image','video','meme');
- scans.push({keyword,country,media,count:events.filter(x=>x.type==='ad').length,partial:!done||events.some(x=>x.type==='error')||['TIME_BUDGET','PAGINATION_BLOCKED','PAGINATION_UNCONFIRMED','NO_MORE_RESULTS_OBSERVED'].includes(done.paginationStop)||warnings.includes('META_RATE_LIMITED'),stop:done?.paginationStop||null});
- for(const {data:a} of events.filter(x=>x.type==='ad'&&/^\d+$/.test(x.data?.id))){
+const regionCodes=new Map();
+const names=new Intl.DisplayNames(['en'],{type:'region',fallback:'none'});
+for(let i=0;i<676;i++){
+ const code=String.fromCharCode(65+Math.floor(i/26),65+i%26),name=names.of(code);
+ if(name){regionCodes.set(name.toLowerCase(),code);regionCodes.set(code.toLowerCase(),code)}
+}
+function collect(a,keyword,country){
   if(!ads.has(a.id))ads.set(a.id,{id:a.id,name:a.advertiser_name,type:a.media_type,startedAt:a.started_at||null,daysRunning:a.days_running??null,reach:a.total_reach??null,impressionsMin:a.impressions_min??null,impressionsMax:a.impressions_max??null,spendMin:a.spend_min??null,spendMax:a.spend_max??null,currency:a.spend_currency||'',headline:a.headline||'',body:(a.body_variants||[]).join(' ').slice(0,1800),keywords:[],countries:[],media:[],urls:new Set(),destinations:new Map()});
   const row=ads.get(a.id);
   const links=[a.link_url,...(a.carousel_cards||[]).map(c=>c.link_url)].map(landingUrl).filter(Boolean);
@@ -42,16 +36,47 @@ for(const keyword of keywords)for(const country of countries){
   if(a.post_engagement)row.postEngagement={...row.postEngagement,...a.post_engagement};
   for(const [key,value] of Object.entries({startedAt:a.started_at,daysRunning:a.days_running,reach:a.total_reach,impressionsMin:a.impressions_min,impressionsMax:a.impressions_max,spendMin:a.spend_min,spendMax:a.spend_max,currency:a.spend_currency}))if((row[key]==null||row[key]==='')&&value!=null)row[key]=value;
   if(!row.keywords.includes(keyword))row.keywords.push(keyword);
+  row.deliveryCountries=[...new Set([...(row.deliveryCountries||[]),...(a.delivery_countries||[]).map(v=>regionCodes.get(String(v).toLowerCase())).filter(Boolean)])];
   if(!row.countries.includes(country))row.countries.push(country);
   for(const url of [...(a.video_urls||[]),...(a.media_urls||[]),...(a.carousel_cards||[]).flatMap(c=>[c.video_url,c.image_url])])if(url)row.urls.add(url);
+  return row;
+}
+function preview(row,a){
+ const videos=new Set([...(a.video_urls||[]),...(a.carousel_cards||[]).map(c=>c.video_url)]);
+ const {urls,destinations,...card}=row;
+ card.media=[...urls].filter(raw=>{try{const u=new URL(raw);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&/(^|\.)(fbcdn\.net|cdninstagram\.com|fbsbx\.com)$/i.test(u.hostname)}catch{return false}})
+ .map(file=>({file,kind:videos.has(file)?'video':'image',landingPage:destinations.get(file)}));
+ return card;
+}
+for(const keyword of keywords)for(const country of countries){
+ const filters=['all'];
+ for(const media of filters){
+ try {
+ const response=await fetch('http://127.0.0.1:3000/api/scrape',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keyword,country,status:'ACTIVE',limit:backfill?60:0,ad_type:media==='all'?undefined:media,paginationBudgetMs:Math.max(30000,Math.floor(perSearch/(media==='all'?2:6))),fetch_details:!backfill && /^(GB|FR|DE|IT|ES|PL|NL|BE|IE|AT|SE|DK|FI|PT|GR|CZ|RO|HU|SK|SI|HR|BG|LT|LV|EE|LU|MT|CY)$/.test(country)}),signal:AbortSignal.timeout(backfill?240000:Math.max(30000,Math.floor(perSearch/(media==='all'?2:6)))+45000)});
+ if(!response.ok)throw Error('Scan HTTP '+response.status);
+ const events=[];let count=0;
+ for await(const event of readEvents(response)){
+  if(event.type!=='ad'){events.push(event);continue}
+  const a=event.data;if(!/^\d+$/.test(a?.id))continue;
+  count++;
+  const fresh=!ads.has(a.id),row=collect(a,keyword,country);
+  if(live&&fresh)await publish('/record',preview(row,a));
  }
+ for(const e of events.filter(x=>x.type==='error'||x.type==='warning'))console.log(keyword,country,e.type,e.message);
+ const done=events.find(x=>x.type==='done');
+ const warnings=events.filter(x=>x.type==='warning').map(x=>x.code);
+ if(backfill&&(!done||events.some(x=>x.type==='error')))throw Error('Incomplete backfill: '+keyword+' / '+country);
+ if(!backfill&&media==='all'&&['PAGINATION_UNCONFIRMED','NO_MORE_RESULTS_OBSERVED'].includes(done?.paginationStop)&&!warnings.includes('META_RATE_LIMITED'))filters.push('image','video','meme');
+ scans.push({keyword,country,media,count,partial:!done||events.some(x=>x.type==='error')||['USER_IDLE','TIME_BUDGET','PAGINATION_BLOCKED','PAGINATION_UNCONFIRMED','NO_MORE_RESULTS_OBSERVED'].includes(done.paginationStop)||warnings.includes('META_RATE_LIMITED'),stop:done?.paginationStop||null});
+
  }catch(error){
- if(backfill)throw error;
+ if(backfill||live&&/Live feed|Runner identity/.test(error.message))throw error;
  scans.push({keyword,country,media,count:0,partial:true,stop:'SCAN_UNAVAILABLE'});
  console.log('Scan unavailable:',keyword,country,media,error.name);
  }
  }
 }
+if(live)await publish('/archiving');
 if(!ads.size&&(backfill||scans.some(x=>x.partial)))throw Error('No reliable results; keeping previous publication');
 if(existing){
  let dates=0,landing=0;

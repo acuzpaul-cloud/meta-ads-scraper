@@ -232,6 +232,14 @@ function extractBodies(node: Record<string, unknown>): string[] {
   return [...new Set(bodies.filter((b) => b && !isPlaceholderOnly(b)))];
 }
 
+function deliveryCountries(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const code = typeof item === 'string' ? item : item?.country_code ?? item?.country ?? item?.code;
+    return typeof code === 'string' && code.length <= 80 ? [code] : [];
+  });
+}
+
 export function parseAdNode(node: Record<string, unknown>, jobId?: string): Ad {
   const snapshot = node.snapshot as Record<string, unknown> | undefined;
 
@@ -315,6 +323,7 @@ export function parseAdNode(node: Record<string, unknown>, jobId?: string): Ad {
     impressions_min: impressions?.lower_bound ? Number(impressions.lower_bound) : undefined,
     impressions_max: impressions?.upper_bound ? Number(impressions.upper_bound) : undefined,
     funding_entity: fundingEntity,
+    delivery_countries: deliveryCountries(node.reached_countries ?? node.delivery_countries ?? node.age_country_gender_reach_breakdown),
     demographic_distribution: extractDemographics(node),
     region_distribution: extractRegions(node),
     ad_snapshot_url: node.ad_snapshot_url
@@ -361,6 +370,7 @@ export function parseAdDetails(json: unknown): Partial<Ad> {
     | Array<Record<string, unknown>>
     | undefined;
   if (Array.isArray(breakdown) && breakdown.length > 0) {
+    out.delivery_countries = deliveryCountries(breakdown);
     const ageGenderCounts = new Map<string, { age: string; gender: string; count: number }>();
     const byCountry: RegionEntry[] = [];
     let grand = 0;

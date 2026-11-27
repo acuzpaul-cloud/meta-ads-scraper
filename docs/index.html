@@ -20,8 +20,8 @@ function productKey(raw){
   return homary?'homary.com/item/'+homary[1]:host+url.pathname.replace(/\/+$/,'').replace(/\/amp$/i,'');
  }catch{return null}
 }
-function indexCounts(records){
- productAds.clear();mediaAds.clear();
+function indexCounts(records,reset=true){
+ if(reset){productAds.clear();mediaAds.clear()}
  function add(map,key,id){if(!key)return;if(!map.has(key))map.set(key,new Set());map.get(key).add(id)}
  for(const row of records){
   for(const url of [...(row.landingPages||[]),...(row.media||[]).map(m=>m.landingPage)])add(productAds,productKey(url),row.id);
@@ -29,7 +29,7 @@ function indexCounts(records){
  }
 }
 function updateBatchControls(){
- $('count').textContent='显示 '+found.length+' / '+rows.length+' 条'+(batchMode?' · 已选 '+selected.size+' 张':'');
+ $('count').textContent='已收集 '+rows.length+' 条'+(found.length!==rows.length?' · 筛选命中 '+found.length+' 条':'')+(batchMode?' · 已选 '+selected.size+' 张':'');
  $('batchMode').textContent=batchMode?'退出选择':'批量下载';
  $('batchMode').setAttribute('aria-pressed',String(batchMode));
  $('batchMode').disabled=batchBusy;
@@ -154,7 +154,7 @@ cards.append(el);
 $('grid').append(cards);
 renderedCount=visibleEnd;
 $('loadMore').hidden=renderedCount>=found.length&&(!liveSession||liveSession.phase!=='open');
-$('loadProgress').textContent=liveSession?(liveSession.phase==='open'?'下拉继续采集':'正在归档素材'):!found.length?'':renderedCount<found.length?'已展示 '+renderedCount+' / '+found.length+' 条':partialCatalog?'已展示 '+found.length+' 条已采集广告，来源分页尚未确认完成。':'已展示全部 '+found.length+' 条已采集广告。';
+$('loadProgress').textContent=liveSession?(liveSession.phase==='open'?'下拉继续采集':'正在归档素材'):!found.length?'':renderedCount<found.length?'向下滚动查看已采集的广告':partialCatalog?'已展示 '+found.length+' 条已采集广告，来源分页尚未确认完成。':'已展示全部 '+found.length+' 条已采集广告。';
 }
 $('loadMore').onclick=onDownwardScroll;
 let lastScrollY=window.scrollY, nextBatchAt=0;
@@ -162,14 +162,14 @@ async function onDownwardScroll(){
  const session=liveSession;
  if(performance.now()<nextBatchAt)return;
  nextBatchAt=performance.now()+450;
- if(renderedCount<found.length)appendMore(!session);
+ if(renderedCount<found.length)appendMore();
  if(!session||session.phase!=='open'||session.sending)return;
  session.sending=true;
  try{
   const seq=session.seq+1;
   const r=await fetch(base+'/more?requestId='+session.id+'&seq='+seq,{method:'POST',signal:AbortSignal.timeout(5000)});
   if(!r.ok)throw Error();
-  session.seq=seq;
+  session.seq=seq;rememberScan(session);
   if(liveSession===session)$('scanStatus').textContent='已请求继续向下采集';
  }catch{if(liveSession===session)$('scanStatus').textContent='下拉请求未送达，可再次下拉。'}
  finally{session.sending=false}
@@ -208,6 +208,7 @@ const countryCodes='BR IN GB US CA AR AU AT BE CL CN CO HR DK DO EG FI FR DE GR 
 const countries=countryCodes.map(code=>[code,countryLabel(code)]);
 for(const [code,label] of countries.sort((a,b)=>a[1].localeCompare(b[1],'zh-CN')))scope.add(new Option(label,code));
 function receive(session,events){
+ const added=[];
  for(const {seq,card} of events){
   if(seq<=session.cursor)continue;
   session.cursor=seq;
@@ -217,11 +218,11 @@ function receive(session,events){
    m.downloadUrl=base+'/asset?requestId='+session.id+'&ad='+card.id+'&index='+i;
    m.archiveName=card.id+'-'+(i+1);
   });
-  rows.push(card);
+  rows.push(card);added.push(card);
   if(matches(card))found.push(card);
   for(const word of card.keywords)if(!Array.from($('brand').options).some(o=>o.value===word))$('brand').add(new Option(word,word));
  }
- if(events.length){indexCounts(rows);appendMore(true);updateBatchControls();$('scanStatus').textContent='正在同步 · 已收到 '+rows.length+' 条广告'}
+ if(added.length){indexCounts(added,false);appendMore(true);updateBatchControls();$('scanStatus').textContent='正在同步 · 已收到 '+rows.length+' 条广告'}
 }
 async function follow(session){
  while(liveSession===session){
@@ -241,8 +242,12 @@ async function follow(session){
   }
  }
 }
-$('scan').onsubmit=async e=>{
- e.preventDefault();
+const scanKey='tucoiva-live-scan';
+function rememberScan(s){
+ try{sessionStorage.setItem(scanKey,JSON.stringify({id:s.id,keywords:s.keywords,country:s.country,start:s.start,seq:s.seq}))}catch{}
+}
+$('scan').onsubmit=e=>{e.preventDefault();void watchScan()};
+async function watchScan(saved){
  const keywords=$('keywords').value.trim(),msg=$('scanStatus');
  if(!keywords){msg.textContent='请输入关键词。';return}
  const button=$('scan').querySelector('button[type=submit]');
@@ -251,22 +256,26 @@ $('scan').onsubmit=async e=>{
  const progress=label=>{msg.textContent=label;$('queryProgress').textContent=label};
  progress('正在提交查询…');overlay.hidden=false;main.inert=true;
  try{
+  let sent={requestId:saved?.id};
+  if(!saved){
   const r=await fetch(base+'/query',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keywords,country:scope.value}),signal:AbortSignal.timeout(22000)});
-  const sent=await r.json();
+  sent=await r.json();
   if(!r.ok||!sent.requestId){
    const errors={NOT_CONFIGURED:'查询服务正在配置中，暂时不能启动新采集。',INVALID_INPUT:'请检查关键词格式。多个关键词用逗号分隔，每次最多 8 个。',GITHUB_REJECTED:'GitHub 未接受采集任务（'+(sent.upstreamStatus||r.status)+'）。'};
    throw Error(errors[sent.error]||'查询服务暂时不可用。');
   }
+  }
   selected.clear();for(const id of ['q','brand','country','kind','saved'])$(id).value='';
-  const session={id:sent.requestId,cursor:0,seq:0,ids:new Set(),phase:'open'};
+  const session={id:sent.requestId,cursor:0,seq:saved?.seq||0,start:saved?.start||Date.now(),keywords,country:scope.value,ids:new Set(),phase:'open'};
+  rememberScan(session);
   liveSession=session;
   await init({ads:[],scans:[]});
   $('notice').textContent='';overlay.hidden=true;main.inert=false;
   void follow(session);
   const labels={waiting:'等待任务启动',queued:'正在排队',in_progress:'正在采集并发布',completed:'采集完成，正在等待页面更新'};
   const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-  const deadline=Date.now()+32*60*1000;let n=0;
-  progress('查询已提交，正在等待任务启动。');
+  const deadline=session.start+32*60*1000;let n=0;
+  progress(saved?'正在接回上次查询…':'查询已提交，正在等待任务启动。');
   while(Date.now()<deadline){
    await pause(8000);
    const data=(session.phase!=='open'||n%4===0)&&await fetch('./ads.json?check='+Date.now(),{cache:'no-store',signal:AbortSignal.timeout(7000)}).then(r=>r.ok?r.json():null).catch(()=>null);
@@ -282,7 +291,7 @@ $('scan').onsubmit=async e=>{
    }
   }
   msg.textContent='等待归档超时，已收到的广告仍可查看。';
- }catch(error){msg.textContent=error.message||'查询未完成，请重试。'}finally{liveSession=null;overlay.hidden=true;main.inert=false;button.disabled=false}
+ }catch(error){msg.textContent=error.message||'查询未完成，请重试。'}finally{liveSession=null;$('loadMore').hidden=renderedCount>=found.length;try{sessionStorage.removeItem(scanKey)}catch{}overlay.hidden=true;main.inert=false;button.disabled=false}
 };
 function updateSpendInputs(){
  const isCpm=$('spend-basis').value==='impressions';
@@ -308,5 +317,9 @@ async function init(published){
  indexCounts(rows);
  options('brand',rows.flatMap(a=>a.keywords),v=>v);options('country',[...countryCodes,...rows.flatMap(a=>a.countries).filter(c=>c!=='ALL')].sort((a,b)=>countryLabel(a).localeCompare(countryLabel(b),'zh-CN')),countryLabel);render();
 }
-init();
+let savedScan;
+try{savedScan=JSON.parse(sessionStorage.getItem(scanKey))}catch{}
+if(savedScan&&typeof savedScan.keywords==='string'&&/^[0-9a-f-]{36}$/.test(savedScan.id)&&savedScan.start>Date.now()-32*60000){
+ $('keywords').value=savedScan.keywords;scope.value=savedScan.country;void watchScan(savedScan);
+}else{void init()}
 </script></html>

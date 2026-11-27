@@ -70,6 +70,39 @@ function buildUrl(params: SearchParams): string {
   return url.toString();
 }
 
+// A card can also say "See more" to expand its copy. The generic label
+// only identifies pagination when it sits in the wide row below the cards.
+async function clickMoreResults(page: Page, lastCard: import('playwright').Locator) {
+  const label = /^(?:see more(?: results)?|show more(?: results)?|load more(?: results)?|(?:查看|加载|顯示|載入|显示)更多(?:结果|結果)?)[\s▼▾▿⌄]*$/i;
+  const controls = page.getByRole('button', { name: label })
+    .or(page.getByRole('link', { name: label }))
+    .or(page.getByText(label));
+  const last = await lastCard.boundingBox({ timeout: 400 }).catch(() => null);
+  const index = await controls.evaluateAll((nodes, lastY) => {
+    for (let i = nodes.length - 1; i >= 0; i--) {
+      const node = nodes[i];
+      if (node.closest('[role="dialog"], article, [role="article"]')) continue;
+      const rect = node.getBoundingClientRect();
+      if (!rect.width || !rect.height || (lastY !== null && rect.bottom < lastY)) continue;
+      const name = (node.getAttribute('aria-label') || node.textContent || '').trim();
+      if (/results|结果|結果/i.test(name)) return i;
+      // The clickable text or link itself may only be as wide as its label.
+      for (let row: Element | null = node; row; row = row.parentElement) {
+        if ((row.textContent || '').trim() !== (node.textContent || '').trim()) break;
+        if (row.getBoundingClientRect().width >= document.documentElement.clientWidth * 0.55) return i;
+      }
+    }
+    return -1;
+  }, last?.y ?? null);
+  if (index < 0) return 'absent';
+  try {
+    await controls.nth(index).click({ timeout: 3500 });
+    return 'clicked';
+  } catch {
+    return 'click-failed';
+  }
+}
+
 async function handleCookieConsent(page: Page): Promise<void> {
   const selectors = [
     '[data-testid="cookie-policy-manage-dialog-accept-button"]',
@@ -410,6 +443,7 @@ export async function* scrapeAds(
 
     // Scroll to trigger pagination GraphQL POSTs
     let noNewCount = 0;
+    let footerClicks = 0, footerFailures = 0, newIdsAfterClick = 0;
     const maxScrolls = Math.ceil(limit / 25) + 6;
 
     for (let i = 0; i < maxScrolls && collectedAds.length < limit; i++) {
@@ -431,13 +465,19 @@ export async function* scrapeAds(
         await page.mouse.wheel(0, v?.height ?? 900).catch(() => {});
         await randomDelay(400, 750);
       }
-      const more = page.getByRole('button', { name: /^(?:Load more(?: results)?|See more results|加载更多(?:结果)?|查看更多结果)$/i }).last();
-      if (await more.isVisible().catch(() => false)) await more.click({ timeout: 2500 }).catch(() => {});
-      await randomDelay(2200, 3600);
+      if (pagingBlocked) { onPaginationStop?.('PAGINATION_BLOCKED'); break; }
+      const footer = pendingJsons.length ? 'skipped' : await clickMoreResults(page, lastCard);
+      if (footer === 'clicked') footerClicks++;
+      if (footer === 'click-failed') footerFailures++;
+      const waitUntil = Math.min(unlimited ? deadline : Infinity, Date.now() + (footer === 'clicked' ? 9000 : 3200));
+      while (!pendingJsons.length && !pagingBlocked && Date.now() < waitUntil) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
 
       // Drain any GraphQL POST responses collected since last scroll
       const batch = flushPending(pendingJsons, jobId, seen);
       if (batch.length > 0) {
+        if (footer === 'clicked') newIdsAfterClick += batch.length;
         collectedAds.push(...batch);
         yield* out(batch);
         noNewCount = 0;
@@ -457,6 +497,7 @@ export async function* scrapeAds(
       yield* out(last);
     }
 
+    console.log('[scraper] pagination footer:', { footerClicks, footerFailures, newIdsAfterClick });
     console.log('[scraper] done, total:', collectedAds.length, 'ad GraphQL responses:', pagingResponses);
     // Any ads parsed means the ad_archive_id payload shape still works. We don't
     // mark search "down" on zero results — an empty page is also a valid "no

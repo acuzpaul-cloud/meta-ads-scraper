@@ -98,7 +98,16 @@ async function live(request,env,path,q){
   if(!raw)return json({error:'NO_ASSET'},404);
   const url=new URL(raw);
   if(url.protocol!=='https:'||url.username||url.password||url.port||!/(^|\.)(fbcdn\.net|cdninstagram\.com|fbsbx\.com)$/i.test(url.hostname))return json({error:'NO_ASSET'},404);
-  const source=await fetch(url,{redirect:'error'});
+  let source;
+  try{
+   for(let hops=0;hops<3;hops++){
+    source=await fetch(url.href,{redirect:'manual',signal:AbortSignal.timeout(12000)});
+    if(![301,302,303,307,308].includes(source.status))break;
+    const next=new URL(source.headers.get('location')||'',url);
+    if(next.protocol!=='https:'||next.username||next.password||next.port||!/(^|\.)(fbcdn\.net|cdninstagram\.com|fbsbx\.com)$/i.test(next.hostname))break;
+    url.href=next.href;
+   }
+  }catch{return json({error:'MEDIA_UNAVAILABLE'},502)}
   const mime=source.headers.get('Content-Type')||'';
   if(!source.ok||!(/^(image\/(jpeg|png|webp|avif|gif)|video\/(mp4|webm))(;|$)/i.test(mime)))return json({error:'MEDIA_UNAVAILABLE'},502);
   return new Response(source.body,{headers:{...cors,'Content-Type':mime,'X-Content-Type-Options':'nosniff','Content-Disposition':'attachment; filename="'+ad+'-'+(index+1)+'.'+mime.split('/')[1].split(';')[0]+'"'}});

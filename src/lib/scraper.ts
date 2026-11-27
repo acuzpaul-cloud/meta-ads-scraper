@@ -384,12 +384,19 @@ export async function* scrapeAds(
       if (stampCategory && (!ad.category || ad.category === 'ALL')) ad.category = stampCategory;
       return ad;
     }
-    async function out(batch: Ad[]): Promise<Ad[]> {
+    async function* out(batch: Ad[]): AsyncGenerator<Ad[]> {
       batch.forEach(stamp);
+      if (detailSig && process.env.AD_REQUEST_ID && process.env.ACTIONS_ID_TOKEN_REQUEST_URL) {
+        for (const ad of batch) {
+          await enrichBatch(page, detailSig, [ad]).catch(() => {});
+          yield [ad];
+        }
+        return;
+      }
       if (detailSig && batch.length) {
         await enrichBatch(page, detailSig, batch).catch(() => {});
       }
-      return batch;
+      yield batch;
     }
 
     // Extract initial batch from raw SSR HTML (captured in response handler above)
@@ -398,7 +405,7 @@ export async function* scrapeAds(
 
     if (initialBatch.length > 0) {
       collectedAds.push(...initialBatch);
-      yield await out(initialBatch);
+      yield* out(initialBatch);
     }
 
     // Scroll to trigger pagination GraphQL POSTs
@@ -432,7 +439,7 @@ export async function* scrapeAds(
       const batch = flushPending(pendingJsons, jobId, seen);
       if (batch.length > 0) {
         collectedAds.push(...batch);
-        yield await out(batch);
+        yield* out(batch);
         noNewCount = 0;
       } else {
         noNewCount++;
@@ -447,7 +454,7 @@ export async function* scrapeAds(
     const last = flushPending(pendingJsons, jobId, seen);
     if (last.length > 0) {
       collectedAds.push(...last);
-      yield await out(last);
+      yield* out(last);
     }
 
     console.log('[scraper] done, total:', collectedAds.length, 'ad GraphQL responses:', pagingResponses);

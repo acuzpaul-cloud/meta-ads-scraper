@@ -46,7 +46,16 @@ function geography(ad){
  return known.length?known:['US'];
 }
 const batchSize=30;
-let renderedCount=0,partialCatalog=false;
+let renderedCount=0,partialCatalog=false,archiveNote='';
+function archiveStatus(scans){
+ const partial=(scans||[]).filter(s=>s.partial||s.stop==='NO_MORE_RESULTS_OBSERVED');
+ if(!partial.length)return '';
+ if(partial.every(s=>s.stop==='PAGINATION_UNCONFIRMED'||s.stop==='NO_MORE_RESULTS_OBSERVED'))
+  return '本次采集已结束，采集端未读到下一页。';
+ if(partial.every(s=>s.stop==='USER_IDLE'))return '本次采集因等待下拉超时而结束。';
+ if(partial.every(s=>s.stop==='TIME_BUDGET'))return '本次采集已达到运行时限。';
+ return '本次采集已结束，仅保存了部分结果。';
+}
 function matches(a){
 const q=$('q').value.trim().toLowerCase();
 return (!$('brand').value||a.keywords.includes($('brand').value))&&(!$('country').value||geography(a).includes($('country').value))&&(!$('kind').value||a.type===$('kind').value)&&(!$('saved').value||favorites.has(a.id))&&[a.id,a.name,a.headline,a.body,...a.keywords].join(' ').toLowerCase().includes(q);
@@ -78,7 +87,7 @@ el.querySelector('small').textContent='Library ID '+a.id;
 el.querySelector('.meta').textContent=types[a.type]||a.type;
 const geo=document.createElement('div');geo.className='meta';
 const matched=geography(a);
-geo.textContent='推广地区 '+matched.map(countryLabel).join(' / ')+(a.deliveryCountries?.length?'':'（默认）');
+geo.textContent='推广地区 '+matched.map(countryLabel).join(' / ');
 geo.title=a.deliveryCountries?.length?'资料库披露的地区':'来源未披露地区，按设置显示美国。';
 el.querySelector('.meta').append(geo);
 const start=document.createElement('div');start.className='meta';
@@ -154,7 +163,7 @@ cards.append(el);
 $('grid').append(cards);
 renderedCount=visibleEnd;
 $('loadMore').hidden=renderedCount>=found.length&&(!liveSession||liveSession.phase!=='open');
-$('loadProgress').textContent=liveSession?(liveSession.phase==='open'?'下拉继续采集':'正在归档素材'):!found.length?'':renderedCount<found.length?'向下滚动查看已采集的广告':partialCatalog?'已展示 '+found.length+' 条已采集广告，来源分页尚未确认完成。':'已展示全部 '+found.length+' 条已采集广告。';
+$('loadProgress').textContent=liveSession?(liveSession.phase==='open'?'下拉继续采集':'正在归档素材'):!found.length?'':renderedCount<found.length?'向下滚动查看已采集的广告':partialCatalog?archiveNote+' 已显示当前筛选下的全部已采集记录。':'已展示全部 '+found.length+' 条已采集广告。';
 }
 $('loadMore').onclick=onDownwardScroll;
 let lastScrollY=window.scrollY, nextBatchAt=0;
@@ -312,7 +321,7 @@ $('spend-scenario').addEventListener('submit',e=>{
  output.textContent='情景花费 '+usd.format(units*lo)+' – '+usd.format(units*hi)+'，不是竞品实际花费。';
 });
 async function init(published){
- try{const data=published||await fetch('./ads.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.json()});if(!Array.isArray(data.ads))throw Error();rows=data.ads;partialCatalog=Boolean(data.scans?.some(s=>s.partial||s.stop==='NO_MORE_RESULTS_OBSERVED'));$('notice').textContent=(data.scans?.some(s=>s.partial||s.stop==='NO_MORE_RESULTS_OBSERVED')?'未确认翻完 · 以下为已采集结果':(rows.length?'已加载已发布素材':'暂无已发布广告'))}catch{$('notice').textContent='暂时无法加载广告结果，请刷新重试'}
+ try{const data=published||await fetch('./ads.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.json()});if(!Array.isArray(data.ads))throw Error();rows=data.ads;archiveNote=archiveStatus(data.scans);partialCatalog=Boolean(archiveNote);$('notice').textContent=(data.scans?.some(s=>s.partial||s.stop==='NO_MORE_RESULTS_OBSERVED')?'当前显示上次采集保存的结果':(rows.length?'已加载已发布素材':'暂无已发布广告'))}catch{$('notice').textContent='暂时无法加载广告结果，请刷新重试'}
  function options(id,values,label){$(id).options.length=1;for(const v of [...new Set(values)])$(id).add(new Option(label(v),v))}
  indexCounts(rows);
  options('brand',rows.flatMap(a=>a.keywords),v=>v);options('country',[...countryCodes,...rows.flatMap(a=>a.countries).filter(c=>c!=='ALL')].sort((a,b)=>countryLabel(a).localeCompare(countryLabel(b),'zh-CN')),countryLabel);render();

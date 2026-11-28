@@ -1,0 +1,16 @@
+{
+  "name": "广告资料库后台",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-24-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/desktop-lite:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "forwardPorts": [6080, 4318],
+  "portsAttributes": {
+    "6080": { "label": "后台浏览器", "onAutoForward": "notify" },
+    "4318": { "label": "广告查询接口", "onAutoForward": "silent" },
+    "5901": { "onAutoForward": "ignore" }
+  },
+  "postCreateCommand": "npm ci && npx playwright install --with-deps chromium",
+  "postStartCommand": "bash scripts/browser-backend/start.sh"
+}

@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "incremental": false,
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "rootDir": "../../src",
+    "outDir": "../../node_modules/.cache/tucoiva-browser",
+    "plugins": []
+  },
+  "include": ["../../src/lib/scraper.ts"]
+}

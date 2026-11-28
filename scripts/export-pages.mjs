@@ -1,6 +1,8 @@
+import {browserEndpoint, scanWithBrowser} from './browser-endpoint.mjs';
 import {live, publish, events as readEvents} from './live-feed.mjs';
 import {mkdir,writeFile,readFile} from 'node:fs/promises';
 const backfill=process.env.AD_BACKFILL==='1';
+const fixedBrowser=live&&!backfill ? await browserEndpoint() : null;
 const existing=backfill?JSON.parse(await readFile('docs/ads.json','utf8')):null;
 if(existing){process.env.AD_KEYWORDS=[...new Set(existing.ads.flatMap(a=>a.keywords))].join(',');process.env.AD_COUNTRIES=[...new Set(existing.ads.flatMap(a=>a.countries))].join(',')}
 const keywords=[...new Set(process.env.AD_KEYWORDS.split(',').map(x=>x.trim()).filter(Boolean))];
@@ -52,7 +54,8 @@ for(const keyword of keywords)for(const country of countries){
  const filters=['all'];
  for(const media of filters){
  try {
- const response=await fetch('http://127.0.0.1:3000/api/scrape',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keyword,country,status:'ACTIVE',limit:backfill?60:0,ad_type:media==='all'?undefined:media,paginationBudgetMs:Math.max(30000,Math.floor(perSearch/(media==='all'?2:6))),fetch_details:!backfill && /^(GB|FR|DE|IT|ES|PL|NL|BE|IE|AT|SE|DK|FI|PT|GR|CZ|RO|HU|SK|SI|HR|BG|LT|LV|EE|LU|MT|CY)$/.test(country)}),signal:AbortSignal.timeout(backfill?240000:Math.max(30000,Math.floor(perSearch/(media==='all'?2:6)))+45000)});
+ const options={method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keyword,country,status:'ACTIVE',limit:backfill?60:0,ad_type:media==='all'?undefined:media,paginationBudgetMs:Math.max(30000,Math.floor(perSearch/(media==='all'?2:6))),fetch_details:!backfill && /^(GB|FR|DE|IT|ES|PL|NL|BE|IE|AT|SE|DK|FI|PT|GR|CZ|RO|HU|SK|SI|HR|BG|LT|LV|EE|LU|MT|CY)$/.test(country)}),signal:AbortSignal.timeout(backfill?240000:Math.max(30000,Math.floor(perSearch/(media==='all'?2:6)))+45000)};
+ const response=fixedBrowser ? await scanWithBrowser(fixedBrowser,process.env.AD_REQUEST_ID,options) : await fetch('http://127.0.0.1:3000/api/scrape',options);
  if(!response.ok)throw Error('Scan HTTP '+response.status);
  const events=[];let count=0;
  for await(const event of readEvents(response)){

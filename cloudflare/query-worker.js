@@ -44,15 +44,15 @@ let keyCache, expires=0;
 function decode(s){
  return Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
 }
-async function authorized(request,id){
+export async function authorized(request,id,audience='tucoiva-live/'){
  try{
   const bearer=request.headers.get('Authorization')||'';
   if(!bearer.startsWith('Bearer '))return false;
   const [head,body,signature]=bearer.slice(7).split('.');
   const read=s=>JSON.parse(new TextDecoder().decode(decode(s)));
   const h=read(head),c=read(body),now=Date.now()/1000;
-  if(h.alg!=='RS256'||c.iss!==issuer||c.aud!=='tucoiva-live/'+id||c.exp<=now||!Number.isFinite(c.exp)||c.nbf>now+15||
-     c.workflow_ref!==repo+'/.github/workflows/ads-pages.yml@refs/heads/master'||c.event_name!=='workflow_dispatch'||c.repository!==repo)return false;
+  if(h.alg!=='RS256'||c.iss!==issuer||c.aud!==audience+id||c.exp<=now||!Number.isFinite(c.exp)||c.nbf>now+15||
+     c.workflow_ref!==repo+'/.github/workflows/ads-pages.yml@refs/heads/master'||c.event_name!=='workflow_dispatch'||c.repository!==repo||(audience==='tucoiva-browser/'&&c.ref!=='refs/heads/master'))return false;
   if(!keyCache||expires<now){
    const r=await fetch(issuer+'/.well-known/jwks',{signal:AbortSignal.timeout(6000)});
    if(!r.ok)return false;

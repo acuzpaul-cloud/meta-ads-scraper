@@ -1,0 +1,24 @@
+name: Verify fixed browser session
+on:
+  push:
+    paths:
+      - '.devcontainer/**'
+      - 'scripts/browser-backend/**'
+      - 'scripts/browser-endpoint.mjs'
+      - 'src/lib/scraper.ts'
+      - '.github/workflows/browser-session.yml'
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: node_modules/.bin/tsc -p scripts/browser-backend/tsconfig.json
+      - run: node scripts/browser-backend/session.test.mjs

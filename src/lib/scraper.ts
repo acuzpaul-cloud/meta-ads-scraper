@@ -304,7 +304,8 @@ export async function* scrapeAds(
   params: SearchParams,
   jobId?: string,
   externalSeen?: Set<string>,
-  onPaginationStop?: (reason: string) => void
+  onPaginationStop?: (reason: string) => void,
+  desktop?: { context: BrowserContext; waitForScroll: typeof waitForScroll; signal: AbortSignal }
 ): AsyncGenerator<Ad[], void, unknown> {
   if (!params.keyword && !params.advertiser && !params.page_id) return;
 
@@ -320,15 +321,23 @@ export async function* scrapeAds(
   // creation (common under heavy concurrency) still hits the finally and gets
   // closed — otherwise the launched browser would leak with no ref to close it.
   let browser: import('playwright').Browser | undefined;
+  let ownedTab: Page | undefined;
   let rawHtml = '';
   let pagingResponses = 0;
   let pagingBlocked = false;
 
   try {
-    const b = await launchBrowser(true);
-    browser = b;
-    const context = await createContext(b, nextProxy());
+    let context = desktop?.context;
+    if (!context) {
+      browser = await launchBrowser(true);
+      context = await createContext(browser, nextProxy());
+    }
     const page = await context.newPage();
+    ownedTab = page;
+    if (desktop?.signal.aborted) return;
+    const abortTab = () => { void page.close().catch(() => {}); };
+    desktop?.signal.addEventListener('abort', abortTab, { once: true });
+    page.once('close', () => desktop?.signal.removeEventListener('abort', abortTab));
 
   // Intercept ALL responses:
   // 1. The main page HTML (SSR data) — captured as raw text before React hydrates it
@@ -448,7 +457,8 @@ export async function* scrapeAds(
 
     for (let i = 0; i < maxScrolls && collectedAds.length < limit; i++) {
       if (unlimited && Date.now() >= deadline) { onPaginationStop?.('TIME_BUDGET'); break; }
-      if (noNewCount === 0 && !await waitForScroll(deadline)) {
+      if (desktop?.signal.aborted) break;
+      if (noNewCount === 0 && !await (desktop?.waitForScroll ?? waitForScroll)(deadline)) {
         onPaginationStop?.(Date.now() >= deadline ? 'TIME_BUDGET' : 'USER_IDLE');
         break;
       }
@@ -506,6 +516,7 @@ export async function* scrapeAds(
   } finally {
     // Closing the browser tears down its context and page too. closeBrowser
     // also deregisters it from the live-browser set used at shutdown.
+    if (desktop && ownedTab) await ownedTab.close().catch(() => {});
     await closeBrowser(browser);
   }
 }

@@ -329,8 +329,9 @@ export async function* scrapeAds(
   try {
     let context = desktop?.context;
     if (!context) {
-      browser = await launchBrowser(true);
-      context = await createContext(browser, nextProxy());
+      const launched: import('playwright').Browser = await launchBrowser(true);
+      browser = launched;
+      context = await createContext(launched, nextProxy());
     }
     const page = await context.newPage();
     ownedTab = page;

@@ -11,3 +11,6 @@ node_modules/.bin/tsc -p scripts/browser-backend/tsconfig.json
 nohup flock -n "$state/backend.lock" env AD_PROFILE_DIR="$state/profile" \
   node scripts/browser-backend/server.mjs \
   >"$state/backend.log" 2>&1 </dev/null &
+if [[ "${CODESPACES:-}" = true ]]; then
+  nohup bash scripts/browser-backend/connect.sh --auto >"$state/pairing.log" 2>&1 </dev/null &
+fi

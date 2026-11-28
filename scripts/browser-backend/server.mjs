@@ -13,7 +13,7 @@ const context = await chromium.launchPersistentContext(profile, {
   headless: false, viewport: null, acceptDownloads: false,
 });
 const tab = context.pages()[0] ?? await context.newPage();
-await tab.goto('https://www.facebook.com/ads/library/', { waitUntil: 'domcontentloaded' }).catch(() => {});
+void tab.goto('https://www.facebook.com/ads/library/', { waitUntil: 'domcontentloaded' }).catch(() => {});
 let busy = false;
 const server = createServer(async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');

@@ -2,7 +2,7 @@
 
 第一次使用时，在本仓库 master 分支创建 Codespace。等待开发容器安装完成，在「端口 / Ports」里打开 6080「后台浏览器」，在桌面里的 Chromium 登录 Facebook。如果桌面提示 VNC 密码，桌面组件的初始值是 `vscode`。请保持 6080 私有。
 
-登录后，在 Codespace 终端运行一次：
+仓库拥有者首次创建后台时，启动脚本会自动关联查询页。以后直接在原观察台搜索。需要手工关联或改用另一个 Codespace 时，在该 Codespace 的终端运行：
 
 ```bash
 bash scripts/browser-backend/connect.sh
